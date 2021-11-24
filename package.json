@@ -1,0 +1,55 @@
+{
+  "name": "tweened",
+  "version": "0.0.0",
+  "description": "",
+  "main": "lib/index.js",
+  "module": "lib/index.mjs",
+  "types": "lib/index.d.ts",
+  "files": [
+    "lib"
+  ],
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "rollup -c",
+    "tsc": "tsc -p . --noEmit",
+    "tsc:d": "tsc -p . --outDir lib -d --emitDeclarationOnly",
+    "storybook": "start-storybook -p 6006",
+    "storybook:build": "build-storybook",
+    "prepublishOnly": "rimraf lib && npm run build && npm run tsc:d"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@babel/core": "7.16.0",
+    "@rollup/plugin-typescript": "8.3.0",
+    "@storybook/react": "^6.4.0",
+    "@types/react": "17.0.36",
+    "@types/react-dom": "17.0.11",
+    "babel-loader": "8.2.3",
+    "react": "17.0.2",
+    "react-dom": "17.0.2",
+    "rimraf": "3.0.2",
+    "rollup": "2.60.1",
+    "rollup-plugin-terser": "7.0.2",
+    "typescript": "4.5.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/inokawa/tweened.git"
+  },
+  "keywords": [
+    "react",
+    "hooks",
+    "d3",
+    "visualization",
+    "animation",
+    "svg",
+    "css",
+    "transition"
+  ],
+  "author": "inokawa <stratoooo-taster@yahoo.co.jp> (https://github.com/inokawa/)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/inokawa/tweened/issues"
+  },
+  "homepage": "https://github.com/inokawa/tweened#readme"
+}
