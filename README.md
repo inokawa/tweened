@@ -1,6 +1,6 @@
 # tweened
 
-![npm](https://img.shields.io/npm/v/tweened)
+![npm](https://img.shields.io/npm/v/tweened) [![check](https://github.com/inokawa/tweened/actions/workflows/check.yml/badge.svg)](https://github.com/inokawa/tweened/actions/workflows/check.yml)
 
 A true declarative animation library for [React](https://github.com/facebook/react).
 
