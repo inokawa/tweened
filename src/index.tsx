@@ -6,12 +6,20 @@ import React, {
   isValidElement,
   Children,
   useLayoutEffect,
+  useContext,
 } from "react";
-import { startTween, TweenableProp, TweenObject } from "./engine";
+import {
+  TransitionStateContext,
+  TransitionState,
+  TransitionRemoveContext,
+  TransitionKeyContext,
+} from "./transition";
+import { Ease, startTween, TweenableProp, TweenObject } from "./engine";
+import { useForceRefresh } from "./hooks";
 
-type Tweener = <T extends any>(v: T, opts?: any) => T;
+export { Transition } from "./transition";
 
-type TransitionState = "update" | "enter" | "exit";
+type Tweener = <T extends string | number>(...args: [T] | [T, T]) => T;
 
 type TweenContext = {
   state: TransitionState;
@@ -23,22 +31,36 @@ type TweenRender<P extends object> = (
   ctx: TweenContext
 ) => React.ReactElement;
 
-type TweenOpts = {};
-
-const register = <T extends unknown>(prop: T): T => {
-  return new TweenableProp(prop) as any;
+type TweenOpts = {
+  ease?: Ease;
+  duration?: number;
 };
 
 export const tweened = <P extends object>(
   render: TweenRender<P>,
-  opts?: TweenOpts
+  opts: TweenOpts = {}
 ) => {
   return memo((props: P) => {
+    const refresh = useForceRefresh();
+    const visible = useRef(true);
     const refs = useRef<React.RefObject<any>[]>([]);
     const tweens = useRef<{ k: string; p: TweenableProp }[][]>(null!);
     const prevNode = useRef<React.ReactElement | null>(null);
 
-    const node = render(props, { state: "update", tween: register });
+    const transitionState = useContext(TransitionStateContext);
+    const transitionKey = useContext(TransitionKeyContext);
+    const transitionRemove = useContext(TransitionRemoveContext);
+
+    if (transitionState !== "exit") {
+      visible.current = true;
+    }
+
+    const register = <T extends string | number>(...args: [T] | [T, T]): T => {
+      if (args.length === 2) {
+        return new TweenableProp(args[1], args[0], transitionState) as any;
+      }
+      return new TweenableProp(args[0], null, transitionState) as any;
+    };
 
     let refIndex = 0;
     tweens.current = [];
@@ -69,7 +91,7 @@ export const tweened = <P extends object>(
                 if (prevProp != null) {
                   tweenProps[k][sk] = prevProp;
                 } else {
-                  tweenProps[k][sk] = sp.prop;
+                  tweenProps[k][sk] = sp.to;
                 }
               }
             });
@@ -82,7 +104,7 @@ export const tweened = <P extends object>(
             if (prevProp != null) {
               tweenProps[k] = prevProp;
             } else {
-              tweenProps[k] = p.prop;
+              tweenProps[k] = p.to;
             }
           }
         });
@@ -107,14 +129,36 @@ export const tweened = <P extends object>(
       );
     };
 
-    const renderableNode = makeNodeRenderable(node);
+    const renderableNode = visible.current
+      ? makeNodeRenderable(
+          render(props, { state: transitionState, tween: register })
+        )
+      : null;
 
     useLayoutEffect(() => {
+      if (!visible.current) return;
       const queues: TweenObject[] = [];
       refs.current.forEach((ref, i) => {
-        const t = startTween(ref.current, tweens.current[i]);
+        const t = startTween(
+          ref.current,
+          tweens.current[i],
+          opts.duration,
+          opts.ease
+        );
         queues.push(t);
       });
+      if (transitionState === "exit") {
+        (async () => {
+          try {
+            await Promise.all(queues.map((q) => q.end()));
+            visible.current = false;
+            transitionRemove(transitionKey);
+            refresh();
+          } catch (e) {
+            // NOP
+          }
+        })();
+      }
       return () => {
         queues.forEach((t) => t.interrupt());
       };
