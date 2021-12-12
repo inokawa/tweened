@@ -17,8 +17,6 @@ import {
 import { Ease, startTween, TweenableProp, TweenObject } from "./engine";
 import { useForceRefresh } from "./hooks";
 
-export { Transition } from "./transition";
-
 type Tweener = <T extends string | number>(...args: [T] | [T, T]) => T;
 
 type TweenContext = {
@@ -26,12 +24,12 @@ type TweenContext = {
   tween: Tweener;
 };
 
-type TweenRender<P extends object> = (
+export type TweenRender<P extends object> = (
   props: P,
   ctx: TweenContext
 ) => React.ReactElement;
 
-type TweenOpts = {
+export type TweenOpts = {
   ease?: Ease;
   duration?: number;
 };
