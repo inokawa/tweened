@@ -3,7 +3,6 @@ import { TransitionState } from "./transition";
 import { camelToKebab } from "./utils";
 
 export class TweenableProp {
-  type: "unknown" | "attr" | "style";
   state: TransitionState;
   to: string | number;
   from: string | number | null;
@@ -13,7 +12,6 @@ export class TweenableProp {
     from: string | number | null,
     state: TransitionState
   ) {
-    this.type = "unknown";
     this.state = state;
     this.to = to;
     this.from = from;
@@ -61,9 +59,14 @@ export type Ease =
   | "easeElasticOut"
   | "easeElasticInOut";
 
+export type TweenTarget = {
+  type: "attr" | "style";
+  k: string;
+  p: TweenableProp;
+};
 export const startTween = (
   el: any,
-  tweens: { k: string; p: TweenableProp }[],
+  tweens: TweenTarget[],
   duration?: number,
   ease?: Ease
 ) => {
@@ -77,12 +80,12 @@ export const startTween = (
   }
 
   tweens.forEach((tw) => {
-    if (tw.p.type === "attr") {
+    if (tw.type === "attr") {
       if (tw.p.from != null) {
         s.attr(camelToKebab(tw.k), tw.p.from);
       }
       t.attr(camelToKebab(tw.k), tw.p.to);
-    } else if (tw.p.type === "style") {
+    } else if (tw.type === "style") {
       if (tw.p.from != null) {
         s.style(camelToKebab(tw.k), tw.p.from);
       }

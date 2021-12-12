@@ -14,7 +14,13 @@ import {
   TransitionRemoveContext,
   TransitionKeyContext,
 } from "./transition";
-import { Ease, startTween, TweenableProp, TweenObject } from "./engine";
+import {
+  Ease,
+  startTween,
+  TweenableProp,
+  TweenObject,
+  TweenTarget,
+} from "./engine";
 import { useForceRefresh } from "./hooks";
 
 type Tweener = <T extends string | number>(...args: [T] | [T, T]) => T;
@@ -42,7 +48,7 @@ export const tweened = <P extends object>(
     const refresh = useForceRefresh();
     const visible = useRef(true);
     const refs = useRef<React.RefObject<any>[]>([]);
-    const tweens = useRef<{ k: string; p: TweenableProp }[][]>(null!);
+    const tweens = useRef<TweenTarget[][]>(null!);
     const prevNode = useRef<React.ReactElement | null>(null);
 
     const transitionState = useContext(TransitionStateContext);
@@ -64,7 +70,7 @@ export const tweened = <P extends object>(
     tweens.current = [];
 
     const makeNodeRenderable = (n: React.ReactElement): React.ReactElement => {
-      const nodeTweens: { k: string; p: TweenableProp }[] = [];
+      const nodeTweens: TweenTarget[] = [];
       const children: React.ReactNode[] = [];
       const tweenProps = {} as { [key: string]: any };
       if (typeof n.type === "string") {
@@ -83,8 +89,7 @@ export const tweened = <P extends object>(
             Object.keys(p[k]).forEach((sk) => {
               const sp = p[k][sk];
               if (sp instanceof TweenableProp) {
-                sp.type = "style";
-                nodeTweens.push({ k: sk, p: sp });
+                nodeTweens.push({ type: "style", k: sk, p: sp });
                 const prevProp = prevNode.current?.props[k]?.[sk];
                 if (prevProp != null) {
                   tweenProps[k][sk] = prevProp;
@@ -96,8 +101,7 @@ export const tweened = <P extends object>(
             return;
           }
           if (p instanceof TweenableProp) {
-            p.type = "attr";
-            nodeTweens.push({ k, p });
+            nodeTweens.push({ type: "attr", k, p });
             const prevProp = prevNode.current?.props[k];
             if (prevProp != null) {
               tweenProps[k] = prevProp;
@@ -135,6 +139,7 @@ export const tweened = <P extends object>(
 
     useLayoutEffect(() => {
       if (!visible.current) return;
+
       const queues: TweenObject[] = [];
       refs.current.forEach((ref, i) => {
         const t = startTween(
@@ -145,6 +150,7 @@ export const tweened = <P extends object>(
         );
         queues.push(t);
       });
+
       if (transitionState === "exit") {
         (async () => {
           try {
@@ -157,6 +163,7 @@ export const tweened = <P extends object>(
           }
         })();
       }
+
       return () => {
         queues.forEach((t) => t.interrupt());
       };
