@@ -1,3 +1,2 @@
 export * from "./tweened";
-export { Transition } from "./transition";
-export type { TransitionProps } from "./transition";
+export { Transition, type TransitionProps } from "./transition";

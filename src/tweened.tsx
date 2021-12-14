@@ -77,9 +77,9 @@ export const tweened = <P extends object>(
         ...args: [T] | [T, T]
       ): T => {
         if (args.length === 2) {
-          return new TweenableProp(args[1], args[0], transitionState) as any;
+          return new TweenableProp(args[1], args[0]) as any;
         }
-        return new TweenableProp(args[0], null, transitionState) as any;
+        return new TweenableProp(args[0], null) as any;
       };
 
       let refIndex = 0;

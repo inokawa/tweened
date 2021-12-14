@@ -1,18 +1,11 @@
 import * as d3 from "d3";
-import { TransitionState } from "./transition";
 import { camelToKebab } from "./utils";
 
 export class TweenableProp {
-  state: TransitionState;
   to: string | number;
   from: string | number | null;
 
-  constructor(
-    to: string | number,
-    from: string | number | null,
-    state: TransitionState
-  ) {
-    this.state = state;
+  constructor(to: string | number, from: string | number | null) {
     this.to = to;
     this.from = from;
   }
