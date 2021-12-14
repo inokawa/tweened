@@ -68,7 +68,8 @@ export const startTween = (
   el: any,
   tweens: TweenTarget[],
   duration?: number,
-  ease?: Ease
+  ease?: Ease,
+  delay?: number
 ) => {
   const s = d3.select(el);
   const t = s.transition(d3.transition() as any);
@@ -77,6 +78,9 @@ export const startTween = (
   }
   if (ease != null) {
     t.ease(d3[ease]);
+  }
+  if (delay != null) {
+    t.delay(delay);
   }
 
   tweens.forEach((tw) => {

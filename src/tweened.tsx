@@ -45,7 +45,20 @@ export const tweened = <P extends object>(
   opts: TweenOpts = {}
 ) => {
   return memo(
-    (props: P & { onTweenStart?: () => void; onTweenEnd?: () => void }) => {
+    ({
+      ease,
+      duration,
+      delay,
+      onTweenStart,
+      onTweenEnd,
+      ...props
+    }: P & {
+      ease?: Ease;
+      duration?: number;
+      delay?: number;
+      onTweenStart?: () => void;
+      onTweenEnd?: () => void;
+    }) => {
       const refresh = useForceRefresh();
       const visible = useRef(true);
       const refs = useRef<React.RefObject<any>[]>([]);
@@ -138,30 +151,31 @@ export const tweened = <P extends object>(
 
       const renderableNode = visible.current
         ? makeNodeRenderable(
-            render(props, { state: transitionState, tween: register })
+            render(props as P, { state: transitionState, tween: register })
           )
         : null;
 
       useLayoutEffect(() => {
         if (!visible.current) return;
 
-        props.onTweenStart?.();
+        onTweenStart?.();
         const queues: TweenObject[] = [];
         refs.current.forEach((ref, i) => {
           const t = startTween(
             ref.current,
             tweens.current[i],
-            opts.duration,
-            opts.ease
+            duration ?? opts.duration,
+            ease ?? opts.ease,
+            delay
           );
           queues.push(t);
         });
 
-        if (transitionState === "exit" || props.onTweenEnd) {
+        if (transitionState === "exit" || onTweenEnd) {
           (async () => {
             try {
               await Promise.all(queues.map((q) => q.end()));
-              props.onTweenEnd?.();
+              onTweenEnd?.();
               if (transitionState === "exit") {
                 visible.current = false;
                 transitionRemove(transitionKey);
