@@ -139,8 +139,7 @@ export const tweened = <P extends object>(
         }
 
         tweens.current.push(nodeTweens);
-        tweenProps.ref =
-          refs.current[refIndex] || (refs.current[refIndex] = createRef());
+        tweenProps.ref = refs.current[refIndex] = createRef();
         refIndex++;
         return cloneElement(
           n,
