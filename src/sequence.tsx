@@ -1,26 +1,20 @@
-import React, { cloneElement, useCallback, useRef } from "react";
-import { useForceRefresh } from "./hooks";
+import React, { Children, cloneElement, useCallback } from "react";
+import { useResettableState } from "./hooks";
 
 export type SequenceProps = {
-  children: React.ReactElement[];
+  children: React.ReactElement | React.ReactElement[];
 };
 
 export const Sequence = ({ children }: SequenceProps) => {
-  const refresh = useForceRefresh();
-  const index = useRef(0);
-  const prevChildren = useRef<React.ReactElement[]>(null!);
-  if (children !== prevChildren.current) {
-    index.current = 0;
-  }
-  prevChildren.current = children;
+  const [index, setIndex] = useResettableState(0, children);
 
-  const target = children[index.current];
-  const length = children.length - 1;
+  const elems = Children.toArray(children) as React.ReactElement[];
+  const target = elems[index];
+  const length = elems.length - 1;
   const onTweenEnd = useCallback(() => {
     target.props.onTweenEnd?.();
-    if (index.current < length) {
-      index.current += 1;
-      refresh();
+    if (index < length) {
+      setIndex(index + 1);
     }
   }, [target, length, index]);
 
