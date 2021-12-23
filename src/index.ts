@@ -1,3 +1,3 @@
 export * from "./tweened";
-export { Sequence, type SequenceProps } from "./sequence";
+export { TweenGroup, type TweenGroupProps } from "./group";
 export { Transition, type TransitionProps } from "./transition";
