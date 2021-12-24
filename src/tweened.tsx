@@ -14,6 +14,7 @@ import {
   TweenObject,
   TweenTarget,
 } from "./engine";
+import { useForceRefresh } from "./hooks";
 
 export type TweenRender<P extends object> = (props: P) => React.ReactElement;
 
@@ -107,59 +108,77 @@ export const tweened = <P extends object>(
       onTweenEnd,
       ...props
     }: TweenedProps<P>) => {
+      const refresh = useForceRefresh();
       const refs = useRef<React.RefObject<any>[]>(null!);
       const tweens = useRef<TweenTarget[][]>(null!);
       const prevNode = useRef<React.ReactElement | null>(null);
+      const nextTarget = useRef<React.ReactElement | null>(null);
 
       refs.current = [];
       tweens.current = [];
 
       const proxiedProps = {} as P;
-      Object.keys(props).forEach((k) => {
-        const v = props[k as keyof typeof props];
-        if (Array.isArray(v)) {
-          if (v.length === 1) {
-            (proxiedProps as any)[k] = new TweenableProp(v[0], null) as any;
-          } else if (v.length == 2) {
-            (proxiedProps as any)[k] = new TweenableProp(v[1], v[0]) as any;
+      const afterProps = {} as P;
+      if (!nextTarget.current) {
+        Object.keys(props).forEach((k) => {
+          const v = props[k as keyof typeof props];
+          if (Array.isArray(v)) {
+            if (v.length === 1) {
+              (proxiedProps as any)[k] = new TweenableProp(v[0], null) as any;
+              (afterProps as any)[k] = v[0];
+            } else if (v.length == 2) {
+              (proxiedProps as any)[k] = new TweenableProp(v[1], v[0]) as any;
+              (afterProps as any)[k] = v[1];
+            }
+          } else {
+            (proxiedProps as any)[k] = v;
+            (afterProps as any)[k] = v;
           }
-        } else {
-          (proxiedProps as any)[k] = v;
-        }
-      });
+        });
+      }
 
       let renderableNode: React.ReactElement | null = null;
       try {
-        const node = render(proxiedProps as P);
-        renderableNode = makeNodeRenderable(node, refs, tweens, prevNode);
+        if (!nextTarget.current) {
+          const node = render(proxiedProps as P);
+          renderableNode = makeNodeRenderable(node, refs, tweens, prevNode);
+        } else {
+          renderableNode = nextTarget.current;
+          nextTarget.current = null;
+        }
       } catch (e) {
         refs.current = [];
         tweens.current = [];
       }
 
       useLayoutEffect(() => {
-        onTweenStart?.();
         const queues: TweenObject[] = [];
-        refs.current.forEach((ref, i) => {
-          const t = startTween(
-            ref.current,
-            tweens.current[i],
-            duration ?? opts.duration,
-            ease ?? opts.ease,
-            delay
-          );
-          queues.push(t);
-        });
+        const hasTween = !!tweens.current.length;
+        if (hasTween) {
+          onTweenStart?.();
+          refs.current.forEach((ref, i) => {
+            const t = startTween(
+              ref.current,
+              tweens.current[i],
+              duration ?? opts.duration,
+              ease ?? opts.ease,
+              delay
+            );
+            queues.push(t);
+          });
 
-        if (onTweenEnd) {
           (async () => {
             try {
               await Promise.all(queues.map((q) => q.end()));
-              onTweenEnd?.();
             } catch (e) {
               // NOP
+            } finally {
+              nextTarget.current = render(afterProps as P);
+              refresh();
             }
           })();
+        } else {
+          onTweenEnd?.();
         }
 
         return () => {
