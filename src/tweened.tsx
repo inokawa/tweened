@@ -7,16 +7,11 @@ import React, {
   Children,
   useLayoutEffect,
 } from "react";
-import { TweenableProp, TweenObject, TweenTarget } from "./engines/types";
-import { Ease, startTween } from "./engines/js";
+import { TweenableProp, TweenObject, TweenTarget } from "./backends/types";
+import { TweenOpts, startTween } from "./backends/js";
 import { useForceRefresh } from "./hooks";
 
 export type TweenRender<P extends object> = (props: P) => React.ReactElement;
-
-export type TweenOpts = {
-  ease?: Ease;
-  duration?: number;
-};
 
 const makeNodeRenderable = (
   n: React.ReactElement,
@@ -84,12 +79,9 @@ export type TweenedProps<P extends object> = {
     : P[key];
 } & {
   trans?: "enter" | "update" | "exit";
-  ease?: Ease;
-  duration?: number;
-  delay?: number;
   onTweenStart?: () => void;
   onTweenEnd?: () => void;
-};
+} & TweenOpts;
 
 export const tweened = <P extends object>(
   render: TweenRender<P>,
@@ -154,13 +146,11 @@ export const tweened = <P extends object>(
         if (hasTween) {
           onTweenStart?.();
           refs.current.forEach((ref, i) => {
-            const t = startTween(
-              ref.current,
-              tweens.current[i],
-              duration ?? opts.duration,
-              ease ?? opts.ease,
-              delay
-            );
+            const t = startTween(ref.current, tweens.current[i], {
+              duration: duration ?? opts.duration,
+              ease: ease ?? opts.ease,
+              delay: delay ?? opts.delay,
+            });
             queues.push(t);
           });
 

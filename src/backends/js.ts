@@ -41,23 +41,27 @@ export type Ease =
   | "easeElasticOut"
   | "easeElasticInOut";
 
+export type TweenOpts = {
+  ease?: Ease;
+  duration?: number;
+  delay?: number;
+};
+
 export const startTween = (
   el: HTMLElement,
   tweens: TweenTarget[],
-  duration?: number,
-  ease?: Ease,
-  delay?: number
+  opts: TweenOpts
 ): TweenObject => {
   const s = d3.select(el);
   const t = s.transition(d3.transition() as any);
-  if (duration != null) {
-    t.duration(duration);
+  if (opts.duration != null) {
+    t.duration(opts.duration);
   }
-  if (ease != null) {
-    t.ease(d3[ease]);
+  if (opts.ease != null) {
+    t.ease(d3[opts.ease]);
   }
-  if (delay != null) {
-    t.delay(delay);
+  if (opts.delay != null) {
+    t.delay(opts.delay);
   }
 
   tweens.forEach((tw) => {
