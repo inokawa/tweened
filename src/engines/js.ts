@@ -1,17 +1,6 @@
 import * as d3 from "d3";
-import { camelToKebab } from "./utils";
-
-export class TweenableProp {
-  to: string | number;
-  from: string | number | null;
-
-  constructor(to: string | number, from: string | number | null) {
-    this.to = to;
-    this.from = from;
-  }
-}
-
-export type TweenObject = ReturnType<typeof startTween>;
+import { camelToKebab } from "../utils";
+import { TweenObject, TweenTarget } from "./types";
 
 export type Ease =
   | "easeLinear"
@@ -52,18 +41,13 @@ export type Ease =
   | "easeElasticOut"
   | "easeElasticInOut";
 
-export type TweenTarget = {
-  type: "attr" | "style";
-  k: string;
-  p: TweenableProp;
-};
 export const startTween = (
-  el: any,
+  el: HTMLElement,
   tweens: TweenTarget[],
   duration?: number,
   ease?: Ease,
   delay?: number
-) => {
+): TweenObject => {
   const s = d3.select(el);
   const t = s.transition(d3.transition() as any);
   if (duration != null) {

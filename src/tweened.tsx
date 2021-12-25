@@ -7,13 +7,8 @@ import React, {
   Children,
   useLayoutEffect,
 } from "react";
-import {
-  Ease,
-  startTween,
-  TweenableProp,
-  TweenObject,
-  TweenTarget,
-} from "./engine";
+import { TweenableProp, TweenObject, TweenTarget } from "./engines/types";
+import { Ease, startTween } from "./engines/js";
 import { useForceRefresh } from "./hooks";
 
 export type TweenRender<P extends object> = (props: P) => React.ReactElement;
@@ -22,7 +17,6 @@ export type TweenOpts = {
   ease?: Ease;
   duration?: number;
 };
-
 
 const makeNodeRenderable = (
   n: React.ReactElement,
@@ -46,9 +40,12 @@ const makeNodeRenderable = (
         });
         return;
       } else if (k === "style") {
-        Object.keys(p[k]).forEach((sk) => {
-          const sp = p[k][sk];
+        Object.keys(p).forEach((sk) => {
+          const sp = p[sk];
           if (sp instanceof TweenableProp) {
+            if (!tweenProps[k]) {
+              tweenProps[k] = {};
+            }
             nodeTweens.push({ type: "style", k: sk, p: sp });
             tweenProps[k][sk] = prevNode.current?.props[k]?.[sk] ?? sp.to;
           }
