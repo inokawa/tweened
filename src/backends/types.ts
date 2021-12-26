@@ -6,6 +6,10 @@ export class TweenableProp {
     this.to = to;
     this.from = from;
   }
+
+  valueOf() {
+    return this.to;
+  }
 }
 
 export type TweenTarget = {

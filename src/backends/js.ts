@@ -1,45 +1,8 @@
 import * as d3 from "d3";
 import { camelToKebab } from "../utils";
+import { Ease, getEase, getInterpolator } from "./d3";
 import { TweenObject, TweenTarget } from "./types";
 
-export type Ease =
-  | "easeLinear"
-  | "easeQuad"
-  | "easeQuadIn"
-  | "easeQuadOut"
-  | "easeQuadInOut"
-  | "easeCubic"
-  | "easeCubicIn"
-  | "easeCubicOut"
-  | "easeCubicInOut"
-  | "easeSin"
-  | "easeSinIn"
-  | "easeSinOut"
-  | "easeSinInOut"
-  | "easeExp"
-  | "easeExpIn"
-  | "easeExpOut"
-  | "easeExpInOut"
-  | "easeCircle"
-  | "easeCircleIn"
-  | "easeCircleOut"
-  | "easeCircleInOut"
-  | "easeBounce"
-  | "easeBounceIn"
-  | "easeBounceOut"
-  | "easeBounceInOut"
-  | "easePoly"
-  | "easePolyIn"
-  | "easePolyOut"
-  | "easePolyInOut"
-  | "easeBack"
-  | "easeBackIn"
-  | "easeBackOut"
-  | "easeBackInOut"
-  | "easeElastic"
-  | "easeElasticIn"
-  | "easeElasticOut"
-  | "easeElasticInOut";
 
 export type TweenOpts = {
   ease?: Ease;
@@ -58,7 +21,7 @@ export const startTween = (
     t.duration(opts.duration);
   }
   if (opts.ease != null) {
-    t.ease(d3[opts.ease]);
+    t.ease(getEase(opts.ease));
   }
   if (opts.delay != null) {
     t.delay(opts.delay);
@@ -66,11 +29,27 @@ export const startTween = (
 
   tweens.forEach((tw) => {
     if (tw.type === "attr") {
-      if (tw.p.from != null) {
-        s.attr(camelToKebab(tw.k), tw.p.from);
-      }
-      t.attr(camelToKebab(tw.k), tw.p.to);
+      t.tween(`attr.${tw.k}`, function () {
+        const name = camelToKebab(tw.k);
+        const i = getInterpolator(
+          tw.p.from ?? this.getAttribute(name),
+          tw.p.to
+        );
+        return function (t) {
+          this.setAttribute(name, i(t));
+        };
+      });
     } else if (tw.type === "style") {
+      t.tween(`style.${tw.k}`, function () {
+        const name = camelToKebab(tw.k);
+        const i = getInterpolator(
+          tw.p.from ?? this.style.getPropertyValue(name),
+          tw.p.to
+        );
+        return function (t) {
+          this.style.setProperty(name, i(t));
+        };
+      });
       if (tw.p.from != null) {
         s.style(camelToKebab(tw.k), tw.p.from);
       }
