@@ -28,7 +28,7 @@ const makeNodeRenderable = (
       if (k === "children") {
         Children.forEach(p as React.ReactNode, (n) => {
           if (isValidElement(n)) {
-            children.push(makeNodeRenderable(n, refs, tweens, prevNode));
+            children.push(n);
             return;
           }
           children.push(n);
@@ -39,7 +39,7 @@ const makeNodeRenderable = (
           const sp = p[sk];
           if (sp instanceof TweenableProp) {
             if (!tweenProps[k]) {
-              tweenProps[k] = {};
+              tweenProps[k] = { ...n.props[k] };
             }
             nodeTweens.push({ type: "style", k: sk, p: sp });
             tweenProps[k][sk] = prevNode.current?.props[k]?.[sk] ?? sp.to;
@@ -111,7 +111,12 @@ export const tweened = <P extends object>(
       if (!nextTarget.current) {
         Object.keys(props).forEach((k) => {
           const v = props[k as keyof typeof props];
-          if (Array.isArray(v)) {
+          if (
+            k !== "children" &&
+            Array.isArray(v) &&
+            v.length &&
+            v.every((a) => typeof a === "number" || typeof a === "string")
+          ) {
             if (v.length === 1) {
               (proxiedProps as any)[k] = new TweenableProp(v[0], null) as any;
               (afterProps as any)[k] = v[0];
@@ -135,8 +140,7 @@ export const tweened = <P extends object>(
           renderableNode = nextTarget.current;
         }
       } catch (e) {
-        refs.current = [];
-        tweens.current = [];
+        throw e;
       }
 
       useLayoutEffect(() => {
