@@ -45,24 +45,36 @@ export const Transition = ({
     if (elemsByKey[k]) {
       // update
       res.push(
-        <TransitionStateContext.Provider key={k} value="update">
-          <TransitionKeyContext.Provider value={k}>
-            <TransitionRemoveContext.Provider value={removeNode}>
-              {elemsByKey[k]}
-            </TransitionRemoveContext.Provider>
-          </TransitionKeyContext.Provider>
-        </TransitionStateContext.Provider>
+        createElement(
+          TransitionStateContext.Provider,
+          { key: k, value: "update" },
+          createElement(
+            TransitionKeyContext.Provider,
+            { value: k },
+            createElement(
+              TransitionRemoveContext.Provider,
+              { value: removeNode },
+              elemsByKey[k]
+            )
+          )
+        )
       );
     } else {
       // exit
       res.push(
-        <TransitionStateContext.Provider key={k} value="exit">
-          <TransitionKeyContext.Provider value={k}>
-            <TransitionRemoveContext.Provider value={removeNode}>
-              {v}
-            </TransitionRemoveContext.Provider>
-          </TransitionKeyContext.Provider>
-        </TransitionStateContext.Provider>
+        createElement(
+          TransitionStateContext.Provider,
+          { key: k, value: "exit" },
+          createElement(
+            TransitionKeyContext.Provider,
+            { value: k },
+            createElement(
+              TransitionRemoveContext.Provider,
+              { value: removeNode },
+              v
+            )
+          )
+        )
       );
     }
   });
@@ -73,13 +85,19 @@ export const Transition = ({
     } else {
       // enter
       res.push(
-        <TransitionStateContext.Provider key={k} value="enter">
-          <TransitionKeyContext.Provider value={k}>
-            <TransitionRemoveContext.Provider value={removeNode}>
-              {v}
-            </TransitionRemoveContext.Provider>
-          </TransitionKeyContext.Provider>
-        </TransitionStateContext.Provider>
+        createElement(
+          TransitionStateContext.Provider,
+          { key: k, value: "enter" },
+          createElement(
+            TransitionKeyContext.Provider,
+            { value: k },
+            createElement(
+              TransitionRemoveContext.Provider,
+              { value: removeNode },
+              v
+            )
+          )
+        )
       );
     }
   });

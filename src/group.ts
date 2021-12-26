@@ -1,4 +1,5 @@
 import React, {
+  createElement,
   Children,
   cloneElement,
   useCallback,
@@ -56,7 +57,9 @@ export type TweenGroupProps = {
   children: React.ReactElement | React.ReactElement[];
 };
 
-export const TweenGroup = ({ children }: TweenGroupProps) => {
+export const TweenGroup = ({
+  children,
+}: TweenGroupProps): React.ReactElement => {
   const transitionState = useContext(TransitionStateContext);
   const transitionKey = useContext(TransitionKeyContext);
   const transitionRemove = useContext(TransitionRemoveContext);
@@ -83,9 +86,9 @@ export const TweenGroup = ({ children }: TweenGroupProps) => {
     }
   });
 
-  return (
-    <Mounter exit={transitionState === "exit"} onEnd={onEnd}>
-      {elems}
-    </Mounter>
-  );
+  return createElement(Mounter, {
+    exit: transitionState === "exit",
+    onEnd,
+    children: elems,
+  });
 };
