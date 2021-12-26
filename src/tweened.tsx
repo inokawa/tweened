@@ -7,7 +7,7 @@ import React, {
   Children,
   useLayoutEffect,
 } from "react";
-import { TweenableProp, TweenObject, TweenTarget } from "./backends/types";
+import { TweenableProp, TweenTarget } from "./backends/types";
 import { TweenOpts, startTween } from "./backends/js";
 import { useForceRefresh } from "./hooks";
 
@@ -133,7 +133,6 @@ export const tweened = <P extends object>(
           renderableNode = makeNodeRenderable(node, refs, tweens, prevNode);
         } else {
           renderableNode = nextTarget.current;
-          nextTarget.current = null;
         }
       } catch (e) {
         refs.current = [];
@@ -141,17 +140,15 @@ export const tweened = <P extends object>(
       }
 
       useLayoutEffect(() => {
-        const queues: TweenObject[] = [];
-        const hasTween = !!tweens.current.length;
-        if (hasTween) {
+        if (tweens.current.length) {
           onTweenStart?.();
-          refs.current.forEach((ref, i) => {
-            const t = startTween(ref.current, tweens.current[i], {
+
+          const queues = tweens.current.map((tw, i) => {
+            return startTween(refs.current[i].current, tw, {
               duration: duration ?? opts.duration,
               ease: ease ?? opts.ease,
               delay: delay ?? opts.delay,
             });
-            queues.push(t);
           });
 
           (async () => {
@@ -164,13 +161,16 @@ export const tweened = <P extends object>(
               refresh();
             }
           })();
-        } else {
-          onTweenEnd?.();
-        }
 
-        return () => {
-          queues.forEach((t) => t.interrupt());
-        };
+          return () => {
+            queues.forEach((t) => t.interrupt());
+          };
+        } else {
+          if (nextTarget.current) {
+            nextTarget.current = null;
+            onTweenEnd?.();
+          }
+        }
       });
 
       prevNode.current = renderableNode;
