@@ -2,10 +2,10 @@ import React, {
   useRef,
   createRef,
   memo,
-  cloneElement,
   isValidElement,
   Children,
   useLayoutEffect,
+  createElement,
 } from "react";
 import { TweenableProp, TweenTarget } from "./backends/types";
 import { TweenOpts, startTween } from "./backends/js";
@@ -21,7 +21,10 @@ const makeNodeRenderable = (
 ): React.ReactElement => {
   const nodeTweens: TweenTarget[] = [];
   const children: React.ReactNode[] = [];
-  const tweenProps = {} as { [key: string]: any };
+  const tweenProps = { ...n.props } as { [key: string]: any };
+  if (n.key != null) {
+    tweenProps.key = n.key;
+  }
   if (typeof n.type === "string") {
     Object.keys(n.props).forEach((k) => {
       const p = n.props[k];
@@ -38,9 +41,6 @@ const makeNodeRenderable = (
         Object.keys(p).forEach((sk) => {
           const sp = p[sk];
           if (sp instanceof TweenableProp) {
-            if (!tweenProps[k]) {
-              tweenProps[k] = { ...n.props[k] };
-            }
             nodeTweens.push({ type: "style", k: sk, p: sp });
             tweenProps[k][sk] = prevNode.current?.props[k]?.[sk] ?? sp.to;
           }
@@ -54,20 +54,14 @@ const makeNodeRenderable = (
     });
   }
 
-  if (nodeTweens.length === 0) {
-    return cloneElement(
-      n,
-      undefined,
-      children.length === 0 ? undefined : children
-    );
+  if (nodeTweens.length !== 0) {
+    const ref = createRef();
+    tweenProps.ref = ref;
+    refs.current.push(ref);
+    tweens.current.push(nodeTweens);
   }
-
-  const ref = createRef();
-  tweenProps.ref = ref;
-  refs.current.push(ref);
-  tweens.current.push(nodeTweens);
-  return cloneElement(
-    n,
+  return createElement(
+    n.type,
     tweenProps,
     children.length === 0 ? undefined : children
   );
