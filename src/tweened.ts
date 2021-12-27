@@ -17,22 +17,29 @@ const makeNodeRenderable = (
   n: React.ReactElement,
   refs: React.MutableRefObject<React.RefObject<any>[]>,
   tweens: React.MutableRefObject<TweenTarget[][]>,
-  prevNode: React.MutableRefObject<React.ReactElement | null>
+  prevNode: React.ReactElement | null
 ): React.ReactElement => {
   const nodeTweens: TweenTarget[] = [];
   const children: React.ReactNode[] = [];
-  const tweenProps = { ...n.props } as { [key: string]: any };
+  const fromProps = { ...n.props } as { [key: string]: any };
   if (n.key != null) {
-    tweenProps.key = n.key;
+    fromProps.key = n.key;
   }
   if (typeof n.type === "string") {
     Object.keys(n.props).forEach((k) => {
       const p = n.props[k];
       if (k === "children") {
-        Children.forEach(p as React.ReactNode, (n) => {
+        const prevChildren = Children.toArray(
+          prevNode?.props.children ?? []
+        ) as React.ReactElement[];
+        Children.forEach(p as React.ReactNode, (n, i) => {
           if (isValidElement(n)) {
-            children.push(n);
-            return;
+            if (typeof n.type === "string") {
+              children.push(
+                makeNodeRenderable(n, refs, tweens, prevChildren[i])
+              );
+              return;
+            }
           }
           children.push(n);
         });
@@ -42,28 +49,32 @@ const makeNodeRenderable = (
           const sp = p[sk];
           if (sp instanceof TweenableProp) {
             nodeTweens.push({ type: "style", k: sk, p: sp });
-            tweenProps[k][sk] = prevNode.current?.props[k]?.[sk] ?? sp.to;
+            fromProps[k][sk] = prevNode?.props[k]?.[sk] ?? sp.to;
           }
         });
         return;
       }
       if (p instanceof TweenableProp) {
         nodeTweens.push({ type: "attr", k, p });
-        tweenProps[k] = prevNode.current?.props[k] ?? p.to;
+        fromProps[k] = prevNode?.props[k] ?? p.to;
       }
     });
   }
 
   if (nodeTweens.length !== 0) {
     const ref = createRef();
-    tweenProps.ref = ref;
+    fromProps.ref = ref;
     refs.current.push(ref);
     tweens.current.push(nodeTweens);
   }
   return createElement(
     n.type,
-    tweenProps,
-    children.length === 0 ? undefined : children
+    fromProps,
+    children.length === 0
+      ? undefined
+      : children.length === 1
+      ? children[0]
+      : children
   );
 };
 
@@ -129,7 +140,12 @@ export const tweened = <P extends object>(
       try {
         if (!nextTarget.current) {
           const node = render(proxiedProps as P);
-          renderableNode = makeNodeRenderable(node, refs, tweens, prevNode);
+          renderableNode = makeNodeRenderable(
+            node,
+            refs,
+            tweens,
+            prevNode.current
+          );
         } else {
           renderableNode = nextTarget.current;
         }
