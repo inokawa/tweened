@@ -148,6 +148,7 @@ export const tweened = <P extends object>(
       }
 
       useLayoutEffect(() => {
+        let revoked = false;
         if (targets.current.length) {
           onTweenStart?.();
 
@@ -162,23 +163,23 @@ export const tweened = <P extends object>(
           (async () => {
             try {
               await Promise.all(queues.map((q) => q.end()));
-            } catch (e) {
-              // NOP
-            } finally {
+              if (revoked) return;
               nextTarget.current = render(afterProps as P);
               refresh();
+            } catch (e) {
+              // NOP
             }
           })();
 
-          return () => {
-            queues.forEach((t) => t.interrupt());
-          };
         } else {
           if (nextTarget.current) {
             nextTarget.current = null;
             onTweenEnd?.();
           }
         }
+        return () => {
+          revoked = true;
+        };
       });
 
       prevNode.current = renderableNode;
