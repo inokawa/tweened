@@ -206,7 +206,7 @@ export class Engine<T extends object = never> {
     );
 
     const start = (elapsed: number) => {
-      if (tween.status !== SCHEDULED) return stop();
+      if (tween.status !== SCHEDULED) return stop(tween, id);
 
       for (const tid in tweens) {
         const t = tweens[tid]!;
@@ -220,10 +220,10 @@ export class Engine<T extends object = never> {
 
         if (t.status === RUNNING) {
           t.callbacks.interrupt.forEach((fn) => fn());
-          stop();
+          stop(t, +tid);
         } else if (+tid < id) {
           t.callbacks.cancel.forEach((fn) => fn());
-          stop();
+          stop(t, +tid);
         }
       }
 
@@ -251,7 +251,7 @@ export class Engine<T extends object = never> {
       if (elapsed < tween.timing.duration) {
         t = tween.timing.ease(elapsed / tween.timing.duration);
       } else {
-        tween.timer.restart(stop);
+        tween.timer.restart(() => stop(tween, id));
         tween.status = ENDING;
       }
 
@@ -259,13 +259,13 @@ export class Engine<T extends object = never> {
 
       if (tween.status === ENDING) {
         tween.callbacks.end.forEach((fn) => fn());
-        stop();
+        stop(tween, id);
       }
     };
 
-    const stop = () => {
-      tween.status = ENDED;
-      tween.timer.stop();
+    const stop = (t: TweenQueue, id: number) => {
+      t.status = ENDED;
+      t.timer.stop();
       delete tweens[id];
       for (const _ in tweens) return;
       this.#targets.delete(target);
