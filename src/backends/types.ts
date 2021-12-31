@@ -20,7 +20,10 @@ export type TweenValue = {
   p: TweenableProp;
 };
 
+export const toKey = (type: string, key: string) => `${type} ${key}`;
+
 export type TweenObject = {
+  get: () => Value[];
   end: () => Promise<void>;
   interrupt: () => void;
 };

@@ -1,7 +1,7 @@
 import { camelToKebab } from "../utils";
 import { Ease, getEase } from "./d3";
-import { Engine } from "./engine";
-import { TweenObject, TweenValue } from "./types";
+import { Engine, TweenQueue } from "./engine";
+import { toKey, TweenObject, TweenValue } from "./types";
 
 const engine = new Engine<HTMLElement>();
 
@@ -13,7 +13,7 @@ export type TweenOpts = {
 
 export const startTween = (
   el: HTMLElement,
-  tweens: TweenValue[],
+  values: TweenValue[],
   opts: TweenOpts
 ): TweenObject => {
   const timing: {
@@ -31,20 +31,22 @@ export const startTween = (
     timing.delay = opts.delay;
   }
 
+  const tweens: TweenQueue[] = [];
   const promises: Promise<void>[] = [];
-  tweens.forEach((tw) => {
+  values.forEach((tw) => {
     if (tw.type === "attr") {
       const name = camelToKebab(tw.k);
       const tween = engine.startTween(
         el,
-        `attr.${tw.k}`,
-        [tw.p.from ?? (el.getAttribute(name) as string), tw.p.to],
+        toKey(tw.type, tw.k),
+        [tw.p.to, tw.p.from ?? undefined],
         (k) => el.getAttribute(name) as string,
         (k, v) => el.setAttribute(name, v as string),
         {
           timing,
         }
       );
+      tweens.push(tween);
       promises.push(
         new Promise((resolve, reject) => {
           if (!tween) return resolve();
@@ -57,14 +59,15 @@ export const startTween = (
       const name = camelToKebab(tw.k);
       const tween = engine.startTween(
         el,
-        `style.${tw.k}`,
-        [tw.p.from ?? el.style.getPropertyValue(name), tw.p.to],
+        toKey(tw.type, tw.k),
+        [tw.p.to, tw.p.from ?? undefined],
         (k) => el.style.getPropertyValue(name),
         (k, v) => el.style.setProperty(name, v as string),
         {
           timing,
         }
       );
+      tweens.push(tween);
       promises.push(
         new Promise((resolve, reject) => {
           if (!tween) return resolve();
@@ -77,6 +80,9 @@ export const startTween = (
   });
 
   return {
+    get: () => {
+      return tweens.map((t) => t.get());
+    },
     end: async () => {
       await Promise.all(promises);
     },

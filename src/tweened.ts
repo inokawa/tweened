@@ -7,7 +7,13 @@ import React, {
   useLayoutEffect,
   createElement,
 } from "react";
-import { TweenableProp, TweenValue } from "./backends/types";
+import {
+  toKey,
+  TweenableProp,
+  TweenObject,
+  TweenValue,
+  Value,
+} from "./backends/types";
 import { TweenOpts, startTween } from "./backends/js";
 import { useForceRefresh } from "./hooks";
 
@@ -16,10 +22,28 @@ export type TweenRender<P extends object> = (props: P) => React.ReactElement;
 type Target = {
   ref: React.RefObject<any>;
   tweens: TweenValue[];
+  lastTween?: TweenObject;
+};
+
+const getPrevValue = (
+  index: number,
+  prevTargets: Target[],
+  type: string,
+  key: string
+): Value | undefined => {
+  const prevTarget = prevTargets[index];
+  if (!prevTarget) return;
+  const prevTweens = prevTarget.lastTween?.get();
+  const prevKey = toKey(type, key);
+  const prevIndex = prevTarget.tweens.findIndex(
+    (tw) => toKey(tw.type, tw.k) === prevKey
+  );
+  return prevTweens?.[prevIndex];
 };
 
 const makeNodeRenderable = (
   n: React.ReactElement,
+  prevTargets: Target[],
   targets: React.MutableRefObject<Target[]>,
   prevNode: React.ReactElement | null
 ): React.ReactElement => {
@@ -39,7 +63,9 @@ const makeNodeRenderable = (
         Children.forEach(p as React.ReactNode, (n, i) => {
           if (isValidElement(n)) {
             if (typeof n.type === "string") {
-              children.push(makeNodeRenderable(n, targets, prevChildren[i]));
+              children.push(
+                makeNodeRenderable(n, prevTargets, targets, prevChildren[i])
+              );
               return;
             }
           }
@@ -51,14 +77,20 @@ const makeNodeRenderable = (
           const sp = p[sk];
           if (sp instanceof TweenableProp) {
             nodeTweens.push({ type: "style", k: sk, p: sp });
-            fromProps[k][sk] = prevNode?.props[k]?.[sk] ?? sp.to;
+            fromProps[k][sk] =
+              getPrevValue(nodeTweens.length - 1, prevTargets, "style", sk) ??
+              prevNode?.props[k]?.[sk] ??
+              sp.to;
           }
         });
         return;
       }
       if (p instanceof TweenableProp) {
         nodeTweens.push({ type: "attr", k, p });
-        fromProps[k] = prevNode?.props[k] ?? p.to;
+        fromProps[k] =
+          getPrevValue(nodeTweens.length - 1, prevTargets, "attr", k) ??
+          prevNode?.props[k] ??
+          p.to;
       }
     });
   }
@@ -108,8 +140,6 @@ export const tweened = <P extends object>(
       const prevNode = useRef<React.ReactElement | null>(null);
       const nextTarget = useRef<React.ReactElement | null>(null);
 
-      targets.current = [];
-
       const proxiedProps = {} as P;
       const afterProps = {} as P;
       if (!nextTarget.current) {
@@ -135,11 +165,19 @@ export const tweened = <P extends object>(
         });
       }
 
+      const prevTargets = targets.current ?? [];
+      targets.current = [];
+
       let renderableNode: React.ReactElement | null = null;
       try {
         if (!nextTarget.current) {
           const node = render(proxiedProps as P);
-          renderableNode = makeNodeRenderable(node, targets, prevNode.current);
+          renderableNode = makeNodeRenderable(
+            node,
+            prevTargets,
+            targets,
+            prevNode.current
+          );
         } else {
           renderableNode = nextTarget.current;
         }
@@ -152,12 +190,16 @@ export const tweened = <P extends object>(
         if (targets.current.length) {
           onTweenStart?.();
 
-          const queues = targets.current.map(({ ref, tweens: tw }) => {
-            return startTween(ref.current, tw, {
-              duration: duration ?? opts.duration,
-              ease: ease ?? opts.ease,
-              delay: delay ?? opts.delay,
-            });
+          const queues = targets.current.map((target) => {
+            return (target.lastTween = startTween(
+              target.ref.current,
+              target.tweens,
+              {
+                duration: duration ?? opts.duration,
+                ease: ease ?? opts.ease,
+                delay: delay ?? opts.delay,
+              }
+            ));
           });
 
           (async () => {
@@ -170,7 +212,6 @@ export const tweened = <P extends object>(
               // NOP
             }
           })();
-
         } else {
           if (nextTarget.current) {
             nextTarget.current = null;

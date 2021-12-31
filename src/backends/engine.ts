@@ -1,7 +1,7 @@
 import { now, timer, timeout, type Timer } from "d3-timer";
-import { easeCubicInOut } from "d3-ease";
-import { getInterpolator } from "./d3";
+import { getInterpolator, defaultEase } from "./d3";
 import { Value } from "./types";
+import { NOP } from "../utils";
 
 const CREATED = 0;
 const SCHEDULED = 1;
@@ -32,7 +32,7 @@ export type Callbacks = {
 };
 
 type TweenValue = [endValue: Value, startValue?: Value];
-type TweenQueue = {
+export type TweenQueue = {
   readonly name: string;
   readonly timing: Timing;
   readonly callbacks: Callbacks;
@@ -40,6 +40,7 @@ type TweenQueue = {
   timer: Timer;
   init: () => void;
   update: (t: number) => void;
+  get: () => Value;
 };
 
 type Timing = {
@@ -56,18 +57,16 @@ const createQueue = (
   name: string,
   timing: Timing,
   callbacks: Callbacks,
-  values: TweenValue[],
+  [endValue, startValue]: TweenValue,
   getter: Getter,
   setter: Setter
 ): TweenQueue => {
-  values.forEach(([, startValue]) => {
-    if (startValue != null) {
-      setter(name, startValue);
-    }
-  });
+  if (startValue != null) {
+    setter(name, startValue);
+  }
 
-  const updaters: { value: string | number; update: (t: number) => void }[] =
-    [];
+  let value: Value;
+  let updater: (t: number) => void = NOP;
 
   return {
     name,
@@ -76,26 +75,25 @@ const createQueue = (
     status: CREATED,
     timer: null!,
     init: () => {
-      values.forEach(([endValue]) => {
-        const startValue = getter(name);
-        if (startValue === endValue) {
-          return null;
-        }
+      const startValue = getter(name);
+      if (startValue === endValue) {
+        return null;
+      }
 
-        const i = getInterpolator(startValue, endValue);
-        const updater = {
-          value: startValue,
-          update: (t: number) => {
-            const v = i(t);
-            updater.value = v;
-            setter(name, v);
-          },
-        };
-        updaters.push(updater);
-      });
+      const i = getInterpolator(startValue, endValue);
+
+      value = startValue;
+      updater = (t: number) => {
+        const v = i(t);
+        value = v;
+        setter(name, v);
+      };
     },
     update: (t: number) => {
-      updaters.forEach((u) => u.update(t));
+      updater(t);
+    },
+    get: () => {
+      return value;
     },
   };
 };
@@ -103,7 +101,7 @@ const createQueue = (
 const timingDefaults = {
   delay: 0,
   duration: 250,
-  ease: easeCubicInOut,
+  ease: defaultEase,
 };
 
 type Schedules = {
@@ -129,10 +127,10 @@ export class Engine<T extends object = never> {
     return null;
   }
 
-  startTween<V extends Value>(
+  startTween(
     target: T,
     name: string,
-    next: V | [V] | [V, V],
+    value: TweenValue,
     getter: Getter,
     setter: Setter,
     {
@@ -143,18 +141,6 @@ export class Engine<T extends object = never> {
       callbacks?: Callbacks;
     } = {}
   ): TweenQueue {
-    const values: TweenValue[] = [];
-
-    if (Array.isArray(next)) {
-      if (next.length === 1) {
-        values.push([next[0]]);
-      } else {
-        values.push([next[1], next[0]]);
-      }
-    } else {
-      values.push([next, next]);
-    }
-
     return this.#update(
       target,
       name,
@@ -163,7 +149,7 @@ export class Engine<T extends object = never> {
         ...timing,
         time: now(),
       },
-      values,
+      value,
       callbacks,
       getter,
       setter
@@ -174,7 +160,7 @@ export class Engine<T extends object = never> {
     target: T,
     name: string,
     timing: Timing,
-    values: TweenValue[],
+    value: TweenValue,
     callbacks: Callbacks,
     getter: Getter,
     setter: Setter
@@ -189,7 +175,7 @@ export class Engine<T extends object = never> {
       name,
       timing,
       callbacks,
-      values,
+      value,
       getter,
       setter
     ));
