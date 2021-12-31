@@ -1,6 +1,7 @@
 import { now, timer, timeout, type Timer } from "d3-timer";
 import { easeCubicInOut } from "d3-ease";
 import { getInterpolator } from "./d3";
+import { Value } from "./types";
 
 const CREATED = 0;
 const SCHEDULED = 1;
@@ -30,7 +31,6 @@ export type Callbacks = {
   end: (() => void)[];
 };
 
-type Value = string | number;
 type TweenValue = [endValue: Value, startValue?: Value];
 type TweenQueue = {
   readonly name: string;

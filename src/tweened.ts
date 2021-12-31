@@ -7,19 +7,23 @@ import React, {
   useLayoutEffect,
   createElement,
 } from "react";
-import { TweenableProp, TweenTarget } from "./backends/types";
+import { TweenableProp, TweenValue } from "./backends/types";
 import { TweenOpts, startTween } from "./backends/js";
 import { useForceRefresh } from "./hooks";
 
 export type TweenRender<P extends object> = (props: P) => React.ReactElement;
 
+type Target = {
+  ref: React.RefObject<any>;
+  tweens: TweenValue[];
+};
+
 const makeNodeRenderable = (
   n: React.ReactElement,
-  refs: React.MutableRefObject<React.RefObject<any>[]>,
-  tweens: React.MutableRefObject<TweenTarget[][]>,
+  targets: React.MutableRefObject<Target[]>,
   prevNode: React.ReactElement | null
 ): React.ReactElement => {
-  const nodeTweens: TweenTarget[] = [];
+  const nodeTweens: TweenValue[] = [];
   const children: React.ReactNode[] = [];
   const fromProps = { ...n.props } as { [key: string]: any };
   if (n.key != null) {
@@ -35,9 +39,7 @@ const makeNodeRenderable = (
         Children.forEach(p as React.ReactNode, (n, i) => {
           if (isValidElement(n)) {
             if (typeof n.type === "string") {
-              children.push(
-                makeNodeRenderable(n, refs, tweens, prevChildren[i])
-              );
+              children.push(makeNodeRenderable(n, targets, prevChildren[i]));
               return;
             }
           }
@@ -64,8 +66,7 @@ const makeNodeRenderable = (
   if (nodeTweens.length !== 0) {
     const ref = createRef();
     fromProps.ref = ref;
-    refs.current.push(ref);
-    tweens.current.push(nodeTweens);
+    targets.current.push({ ref, tweens: nodeTweens });
   }
   return createElement(
     n.type,
@@ -103,13 +104,11 @@ export const tweened = <P extends object>(
       ...props
     }: TweenedProps<P>) => {
       const refresh = useForceRefresh();
-      const refs = useRef<React.RefObject<any>[]>(null!);
-      const tweens = useRef<TweenTarget[][]>(null!);
+      const targets = useRef<Target[]>(null!);
       const prevNode = useRef<React.ReactElement | null>(null);
       const nextTarget = useRef<React.ReactElement | null>(null);
 
-      refs.current = [];
-      tweens.current = [];
+      targets.current = [];
 
       const proxiedProps = {} as P;
       const afterProps = {} as P;
@@ -140,12 +139,7 @@ export const tweened = <P extends object>(
       try {
         if (!nextTarget.current) {
           const node = render(proxiedProps as P);
-          renderableNode = makeNodeRenderable(
-            node,
-            refs,
-            tweens,
-            prevNode.current
-          );
+          renderableNode = makeNodeRenderable(node, targets, prevNode.current);
         } else {
           renderableNode = nextTarget.current;
         }
@@ -154,11 +148,11 @@ export const tweened = <P extends object>(
       }
 
       useLayoutEffect(() => {
-        if (tweens.current.length) {
+        if (targets.current.length) {
           onTweenStart?.();
 
-          const queues = tweens.current.map((tw, i) => {
-            return startTween(refs.current[i].current, tw, {
+          const queues = targets.current.map(({ ref, tweens: tw }) => {
+            return startTween(ref.current, tw, {
               duration: duration ?? opts.duration,
               ease: ease ?? opts.ease,
               delay: delay ?? opts.delay,

@@ -1,7 +1,7 @@
 import { camelToKebab } from "../utils";
 import { Ease, getEase } from "./d3";
 import { Engine } from "./engine";
-import { TweenObject, TweenTarget } from "./types";
+import { TweenObject, TweenValue } from "./types";
 
 const engine = new Engine<HTMLElement>();
 
@@ -13,7 +13,7 @@ export type TweenOpts = {
 
 export const startTween = (
   el: HTMLElement,
-  tweens: TweenTarget[],
+  tweens: TweenValue[],
   opts: TweenOpts
 ): TweenObject => {
   const timing: {

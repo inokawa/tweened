@@ -1,8 +1,10 @@
-export class TweenableProp {
-  to: string | number;
-  from: string | number | null;
+export type Value = string | number;
 
-  constructor(to: string | number, from: string | number | null) {
+export class TweenableProp {
+  to: Value;
+  from: Value | null;
+
+  constructor(to: Value, from: Value | null) {
     this.to = to;
     this.from = from;
   }
@@ -12,7 +14,7 @@ export class TweenableProp {
   }
 }
 
-export type TweenTarget = {
+export type TweenValue = {
   type: "attr" | "style";
   k: string;
   p: TweenableProp;
