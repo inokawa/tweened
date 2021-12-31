@@ -1,8 +1,9 @@
-import * as d3 from "d3";
 import { camelToKebab } from "../utils";
-import { Ease, getEase, getInterpolator } from "./d3";
+import { Ease, getEase } from "./d3";
+import { Engine } from "./engine";
 import { TweenObject, TweenTarget } from "./types";
 
+const engine = new Engine<HTMLElement>();
 
 export type TweenOpts = {
   ease?: Ease;
@@ -15,52 +16,70 @@ export const startTween = (
   tweens: TweenTarget[],
   opts: TweenOpts
 ): TweenObject => {
-  const s = d3.select(el);
-  const t = s.transition(d3.transition() as any);
+  const timing: {
+    duration?: number;
+    ease?: (t: number) => number;
+    delay?: number;
+  } = {};
   if (opts.duration != null) {
-    t.duration(opts.duration);
+    timing.duration = opts.duration;
   }
   if (opts.ease != null) {
-    t.ease(getEase(opts.ease));
+    timing.ease = getEase(opts.ease);
   }
   if (opts.delay != null) {
-    t.delay(opts.delay);
+    timing.delay = opts.delay;
   }
 
+  const promises: Promise<void>[] = [];
   tweens.forEach((tw) => {
     if (tw.type === "attr") {
-      t.tween(`attr.${tw.k}`, function () {
-        const name = camelToKebab(tw.k);
-        const i = getInterpolator(
-          tw.p.from ?? this.getAttribute(name),
-          tw.p.to
-        );
-        return function (t) {
-          this.setAttribute(name, i(t));
-        };
-      });
+      const name = camelToKebab(tw.k);
+      const tween = engine.startTween(
+        el,
+        `attr.${tw.k}`,
+        [tw.p.from ?? (el.getAttribute(name) as string), tw.p.to],
+        (k) => el.getAttribute(name) as string,
+        (k, v) => el.setAttribute(name, v as string),
+        {
+          timing,
+        }
+      );
+      promises.push(
+        new Promise((resolve, reject) => {
+          if (!tween) return resolve();
+          tween.callbacks.end.push(resolve);
+          tween.callbacks.interrupt.push(reject);
+          tween.callbacks.cancel.push(reject);
+        })
+      );
     } else if (tw.type === "style") {
-      t.tween(`style.${tw.k}`, function () {
-        const name = camelToKebab(tw.k);
-        const i = getInterpolator(
-          tw.p.from ?? this.style.getPropertyValue(name),
-          tw.p.to
-        );
-        return function (t) {
-          this.style.setProperty(name, i(t));
-        };
-      });
-      if (tw.p.from != null) {
-        s.style(camelToKebab(tw.k), tw.p.from);
-      }
-      t.style(camelToKebab(tw.k), tw.p.to);
+      const name = camelToKebab(tw.k);
+      const tween = engine.startTween(
+        el,
+        `style.${tw.k}`,
+        [tw.p.from ?? el.style.getPropertyValue(name), tw.p.to],
+        (k) => el.style.getPropertyValue(name),
+        (k, v) => el.style.setProperty(name, v as string),
+        {
+          timing,
+        }
+      );
+      promises.push(
+        new Promise((resolve, reject) => {
+          if (!tween) return resolve();
+          tween.callbacks.end.push(resolve);
+          tween.callbacks.interrupt.push(reject);
+          tween.callbacks.cancel.push(reject);
+        })
+      );
     }
   });
 
   return {
-    end: () => t.end(),
-    interrupt: () => {
-      s.interrupt();
+    end: async () => {
+      await Promise.all(promises);
     },
+    interrupt: () => {},
   };
 };
