@@ -1,6 +1,6 @@
 import { now, timer, timeout, type Timer } from "d3-timer";
 import { getInterpolator, defaultEase } from "./d3";
-import { Value } from "./types";
+import { Value, TweenValue } from "./types";
 import { NOP } from "../utils";
 
 const CREATED = 0;
@@ -31,7 +31,6 @@ export type Callbacks = {
   end: (() => void)[];
 };
 
-type TweenValue = [endValue: Value, startValue?: Value];
 export type TweenQueue = {
   readonly name: string;
   readonly timing: Timing;

@@ -1,7 +1,7 @@
 import { camelToKebab } from "../utils";
 import { Ease, getEase } from "./d3";
 import { Engine, TweenQueue } from "./engine";
-import { toKey, TweenObject, TweenValue } from "./types";
+import { toKey, TweenObject, Tween } from "./types";
 
 const engine = new Engine<HTMLElement>();
 
@@ -13,7 +13,7 @@ export type TweenOpts = {
 
 export const startTween = (
   el: HTMLElement,
-  values: TweenValue[],
+  values: Tween[],
   opts: TweenOpts
 ): TweenObject => {
   const timing: {
@@ -35,11 +35,11 @@ export const startTween = (
   const promises: Promise<void>[] = [];
   values.forEach((tw) => {
     if (tw.type === "attr") {
-      const name = camelToKebab(tw.k);
+      const name = camelToKebab(tw.key);
       const tween = engine.startTween(
         el,
-        toKey(tw.type, tw.k),
-        [tw.p.to, tw.p.from ?? undefined],
+        toKey(tw.type, tw.key),
+        tw.value,
         (k) => el.getAttribute(name) as string,
         (k, v) => el.setAttribute(name, v as string),
         {
@@ -56,11 +56,11 @@ export const startTween = (
         })
       );
     } else if (tw.type === "style") {
-      const name = camelToKebab(tw.k);
+      const name = camelToKebab(tw.key);
       const tween = engine.startTween(
         el,
-        toKey(tw.type, tw.k),
-        [tw.p.to, tw.p.from ?? undefined],
+        toKey(tw.type, tw.key),
+        tw.value,
         (k) => el.style.getPropertyValue(name),
         (k, v) => el.style.setProperty(name, v as string),
         {

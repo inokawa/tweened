@@ -1,231 +1,242 @@
-import React, {
-  useRef,
-  createRef,
-  memo,
-  isValidElement,
-  Children,
-  useLayoutEffect,
-  createElement,
-} from "react";
-import {
-  toKey,
-  TweenableProp,
-  TweenObject,
-  TweenValue,
-  Value,
-} from "./backends/types";
+import React, { useRef, memo, useLayoutEffect, createElement } from "react";
+import { toKey, TweenObject, Tween, Value } from "./backends/types";
 import { TweenOpts, startTween } from "./backends/js";
 import { useForceRefresh } from "./hooks";
 
-export type TweenRender<P extends object> = (props: P) => React.ReactElement;
+export type TweenRender<P extends object, EP extends object> = (
+  props: P
+) => TweenableProps<EP> | TweenableProps<EP>[];
 
 type Target = {
-  ref: React.RefObject<any>;
-  tweens: TweenValue[];
+  tweens: Tween[];
   lastTween?: TweenObject;
 };
 
+export type TweenValue<V extends string | number = string | number> =
+  | [V]
+  | [V, V];
+
+type TweenableProp<V extends any> = V extends string
+  ? V | TweenValue<string>
+  : V extends number
+  ? V | TweenValue<number>
+  : V;
+
+type TweenableProps<P extends object> = {
+  [K in keyof Omit<P, "key">]: K extends "style"
+    ? { [SK in keyof P[K]]: TweenableProp<P[K][SK]> }
+    : TweenableProp<P[K]>;
+};
+
+const isTweenValue = (v: any[]): v is TweenValue =>
+  !!v.length && v.every((a) => typeof a === "number" || typeof a === "string");
+
+type TweenableElement = keyof JSX.IntrinsicElements | React.ComponentType<any>;
+
 const getPrevValue = (
-  index: number,
-  prevTargets: Target[],
+  prevTarget: Target | null,
   type: string,
   key: string
 ): Value | undefined => {
-  const prevTarget = prevTargets[index];
   if (!prevTarget) return;
   const prevTweens = prevTarget.lastTween?.get();
   const prevKey = toKey(type, key);
   const prevIndex = prevTarget.tweens.findIndex(
-    (tw) => toKey(tw.type, tw.k) === prevKey
+    (tw) => toKey(tw.type, tw.key) === prevKey
   );
   return prevTweens?.[prevIndex];
 };
 
-const makeNodeRenderable = (
-  n: React.ReactElement,
-  prevTargets: Target[],
-  targets: React.MutableRefObject<Target[]>,
+const assignProps = <T extends object>(
+  tempProps: TweenableProps<T>,
+  toProps: T,
+  prevTarget: Target | null,
+  target: React.MutableRefObject<Target>,
   prevNode: React.ReactElement | null
-): React.ReactElement => {
-  const nodeTweens: TweenValue[] = [];
-  const children: React.ReactNode[] = [];
-  const fromProps = { ...n.props } as { [key: string]: any };
-  if (n.key != null) {
-    fromProps.key = n.key;
-  }
-  if (typeof n.type === "string") {
-    Object.keys(n.props).forEach((k) => {
-      const p = n.props[k];
-      if (k === "children") {
-        const prevChildren = Children.toArray(
-          prevNode?.props.children ?? []
-        ) as React.ReactElement[];
-        Children.forEach(p as React.ReactNode, (n, i) => {
-          if (isValidElement(n)) {
-            if (typeof n.type === "string") {
-              children.push(
-                makeNodeRenderable(n, prevTargets, targets, prevChildren[i])
-              );
-              return;
+): T => {
+  const fromProps = {} as T;
+  Object.keys(tempProps).forEach((k) => {
+    const p = (tempProps as TweenableProps<T>)[k as keyof TweenableProps<T>];
+    if (k === "children") {
+    } else if (k === "style") {
+      (fromProps as any)[k] = {};
+      (toProps as any)[k] = {};
+      Object.keys(p).forEach((sk) => {
+        const sp = p[sk as keyof typeof p];
+        if (Array.isArray(sp)) {
+          if (isTweenValue(sp)) {
+            let startValue: Value | undefined;
+            let endValue: Value;
+            if (sp.length === 1) {
+              startValue = undefined;
+              endValue = sp[0];
+            } else {
+              startValue = sp[0];
+              endValue = sp[1];
             }
-          }
-          children.push(n);
-        });
-        return;
-      } else if (k === "style") {
-        Object.keys(p).forEach((sk) => {
-          const sp = p[sk];
-          if (sp instanceof TweenableProp) {
-            nodeTweens.push({ type: "style", k: sk, p: sp });
-            fromProps[k][sk] =
-              getPrevValue(nodeTweens.length - 1, prevTargets, "style", sk) ??
+            target.current.tweens.push({
+              type: "style",
+              key: sk,
+              value: [endValue, startValue],
+            });
+            (fromProps as any)[k][sk] =
+              getPrevValue(prevTarget, "style", sk) ??
               prevNode?.props[k]?.[sk] ??
-              sp.to;
+              endValue;
+            (toProps as any)[k][sk] = endValue;
+          } else {
+            // NOP
           }
-        });
-        return;
+        } else {
+          (fromProps as any)[k][sk] = sp;
+          (toProps as any)[k][sk] = sp;
+        }
+      });
+    } else {
+      if (Array.isArray(p)) {
+        if (isTweenValue(p)) {
+          let startValue: Value | undefined;
+          let endValue: Value;
+          if (p.length === 1) {
+            startValue = undefined;
+            endValue = p[0];
+          } else {
+            startValue = p[0];
+            endValue = p[1];
+          }
+          target.current.tweens.push({
+            type: "attr",
+            key: k,
+            value: [endValue, startValue],
+          });
+          (fromProps as any)[k] =
+            getPrevValue(prevTarget, "attr", k) ??
+            prevNode?.props[k] ??
+            endValue;
+          (toProps as any)[k] = endValue;
+        } else {
+          // NOP
+        }
+      } else {
+        (fromProps as any)[k] = p;
+        (toProps as any)[k] = p;
       }
-      if (p instanceof TweenableProp) {
-        nodeTweens.push({ type: "attr", k, p });
-        fromProps[k] =
-          getPrevValue(nodeTweens.length - 1, prevTargets, "attr", k) ??
-          prevNode?.props[k] ??
-          p.to;
-      }
-    });
-  }
-
-  if (nodeTweens.length !== 0) {
-    const ref = createRef();
-    fromProps.ref = ref;
-    targets.current.push({ ref, tweens: nodeTweens });
-  }
-  return createElement(
-    n.type,
-    fromProps,
-    children.length === 0
-      ? undefined
-      : children.length === 1
-      ? children[0]
-      : children
-  );
+    }
+  });
+  return fromProps;
 };
 
-export type TweenedProps<P extends object> = {
-  [key in keyof P]: P[key] extends string | number
-    ? P[key] | [P[key]] | [P[key], P[key]]
-    : P[key];
-} & {
+const cache = new Map<TweenableElement, any>();
+
+export type TweenedProps<P> = P & {
   trans?: "enter" | "update" | "exit";
+  children?: React.ReactNode;
   onTweenStart?: () => void;
   onTweenEnd?: () => void;
 } & TweenOpts;
 
-export const tweened = <P extends object>(
-  render: TweenRender<P>,
-  opts: TweenOpts = {}
-) => {
-  return memo(
-    ({
-      trans,
-      ease,
-      duration,
-      delay,
-      onTweenStart,
-      onTweenEnd,
-      ...props
-    }: TweenedProps<P>) => {
-      const refresh = useForceRefresh();
-      const targets = useRef<Target[]>(null!);
-      const prevNode = useRef<React.ReactElement | null>(null);
-      const nextTarget = useRef<React.ReactElement | null>(null);
+export const tweened = <T extends TweenableElement>(element: T) => {
+  if (cache.has(element)) {
+    return cache.get(element)! as typeof Comp;
+  }
 
-      const proxiedProps = {} as P;
-      const afterProps = {} as P;
-      if (!nextTarget.current) {
-        Object.keys(props).forEach((k) => {
-          const v = props[k as keyof typeof props];
-          if (
-            k !== "children" &&
-            Array.isArray(v) &&
-            v.length &&
-            v.every((a) => typeof a === "number" || typeof a === "string")
-          ) {
-            if (v.length === 1) {
-              (proxiedProps as any)[k] = new TweenableProp(v[0], null) as any;
-              (afterProps as any)[k] = v[0];
-            } else if (v.length == 2) {
-              (proxiedProps as any)[k] = new TweenableProp(v[1], v[0]) as any;
-              (afterProps as any)[k] = v[1];
+  type EP = T extends keyof JSX.IntrinsicElements
+    ? JSX.IntrinsicElements[T]
+    : T extends React.ComponentType<any>
+    ? React.ComponentProps<T>
+    : never;
+
+  const Comp = <P extends object>(
+    render: TweenRender<P, EP>,
+    opts: TweenOpts = {}
+  ) => {
+    return memo(
+      ({
+        children,
+        trans,
+        ease,
+        duration,
+        delay,
+        onTweenStart,
+        onTweenEnd,
+        ...props
+      }: TweenedProps<P>): React.ReactElement => {
+        const refresh = useForceRefresh();
+        const ref = useRef<any>(null);
+        const prevNode = useRef<React.ReactElement | null>(null);
+        const target = useRef<Target>(null!);
+        const nextProps = useRef<EP | null>(null);
+
+        const prevTarget: typeof target.current | null = target.current;
+        target.current = { tweens: [] };
+
+        let fromProps: EP;
+        const toProps = {} as EP;
+        try {
+          if (!nextProps.current) {
+            let tempProps = render(props as P);
+            if (Array.isArray(tempProps)) {
+              // TODO
+              fromProps = tempProps[0] as any;
+            } else {
+              fromProps = assignProps(
+                tempProps,
+                toProps,
+                prevTarget,
+                target,
+                prevNode.current
+              );
             }
           } else {
-            (proxiedProps as any)[k] = v;
-            (afterProps as any)[k] = v;
+            fromProps = nextProps.current;
           }
-        });
-      }
-
-      const prevTargets = targets.current ?? [];
-      targets.current = [];
-
-      let renderableNode: React.ReactElement | null = null;
-      try {
-        if (!nextTarget.current) {
-          const node = render(proxiedProps as P);
-          renderableNode = makeNodeRenderable(
-            node,
-            prevTargets,
-            targets,
-            prevNode.current
-          );
-        } else {
-          renderableNode = nextTarget.current;
+        } catch (e) {
+          throw e;
         }
-      } catch (e) {
-        throw e;
-      }
 
-      useLayoutEffect(() => {
-        let revoked = false;
-        if (targets.current.length) {
-          onTweenStart?.();
+        (fromProps as any).ref = ref;
 
-          const queues = targets.current.map((target) => {
-            return (target.lastTween = startTween(
-              target.ref.current,
-              target.tweens,
+        useLayoutEffect(() => {
+          let revoked = false;
+          if (target.current.tweens.length) {
+            onTweenStart?.();
+
+            const tween = (target.current.lastTween = startTween(
+              ref.current,
+              target.current.tweens,
               {
                 duration: duration ?? opts.duration,
                 ease: ease ?? opts.ease,
                 delay: delay ?? opts.delay,
               }
             ));
-          });
 
-          (async () => {
-            try {
-              await Promise.all(queues.map((q) => q.end()));
-              if (revoked) return;
-              nextTarget.current = render(afterProps as P);
-              refresh();
-            } catch (e) {
-              // NOP
+            (async () => {
+              try {
+                await tween.end();
+                if (revoked) return;
+                nextProps.current = toProps;
+                refresh();
+              } catch (e) {
+                // NOP
+              }
+            })();
+          } else {
+            if (nextProps.current) {
+              nextProps.current = null;
+              onTweenEnd?.();
             }
-          })();
-        } else {
-          if (nextTarget.current) {
-            nextTarget.current = null;
-            onTweenEnd?.();
           }
-        }
-        return () => {
-          revoked = true;
-        };
-      });
+          return () => {
+            revoked = true;
+          };
+        });
 
-      prevNode.current = renderableNode;
+        return (prevNode.current = createElement(element, fromProps, children));
+      }
+    );
+  };
 
-      return renderableNode;
-    }
-  );
+  cache.set(element, Comp);
+  return Comp;
 };

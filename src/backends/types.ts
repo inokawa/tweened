@@ -1,23 +1,11 @@
 export type Value = string | number;
 
-export class TweenableProp {
-  to: Value;
-  from: Value | null;
+export type TweenValue = [endValue: Value, startValue?: Value];
 
-  constructor(to: Value, from: Value | null) {
-    this.to = to;
-    this.from = from;
-  }
-
-  valueOf() {
-    return this.to;
-  }
-}
-
-export type TweenValue = {
+export type Tween = {
   type: "attr" | "style";
-  k: string;
-  p: TweenableProp;
+  key: string;
+  value: TweenValue;
 };
 
 export const toKey = (type: string, key: string) => `${type} ${key}`;
