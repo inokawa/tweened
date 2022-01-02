@@ -1,16 +1,16 @@
 export type Value = string | number;
 
-export type TweenValue = [endValue: Value, startValue?: Value];
+export type TweenValue = [endValue: Value, startValue: Value];
 
-export type Tween = {
+export type TweenTarget = {
   type: "attr" | "style";
   key: string;
-  value: [Value, Value];
+  value: TweenValue;
 };
 
 export const toKey = (type: string, key: string) => `${type} ${key}`;
 
-export type TweenObject = {
+export type Tween = {
   get: () => Value[];
   end: () => Promise<void>;
   interrupt: () => void;

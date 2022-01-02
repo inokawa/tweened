@@ -8,7 +8,10 @@ import * as d3Ease from "d3-ease";
 
 export const defaultEase = d3Ease.easeCubicInOut;
 
-export const getInterpolator = (a: any, b: any): ((arg: number) => any) => {
+export const getInterpolator = (
+  a: any,
+  b: any
+): ((arg: number) => string | number) => {
   let c;
   return (
     typeof b === "number"

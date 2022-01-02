@@ -1,7 +1,7 @@
 import { camelToKebab } from "../utils";
 import { Ease, getEase } from "./d3";
 import { Engine, TweenQueue } from "./engine";
-import { toKey, TweenObject, Tween } from "./types";
+import { toKey, Tween, TweenTarget } from "./types";
 
 const engine = new Engine<HTMLElement>();
 
@@ -13,9 +13,9 @@ export type TweenOpts = {
 
 export const startTween = (
   el: HTMLElement,
-  values: Tween[],
+  values: TweenTarget[],
   opts: TweenOpts
-): TweenObject => {
+): Tween => {
   const timing: {
     duration?: number;
     ease?: (t: number) => number;
@@ -41,9 +41,7 @@ export const startTween = (
         toKey(tw.type, tw.key),
         tw.value,
         (k, v) => el.setAttribute(name, String(v)),
-        {
-          timing,
-        }
+        timing
       );
       tweens.push(tween);
       promises.push(
@@ -62,9 +60,7 @@ export const startTween = (
         tw.value,
         (k, v) =>
           el.style.setProperty(name, typeof v === "number" ? `${v}px` : v),
-        {
-          timing,
-        }
+        timing
       );
       tweens.push(tween);
       promises.push(

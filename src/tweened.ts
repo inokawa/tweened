@@ -1,34 +1,34 @@
 import React, { useRef, memo, useLayoutEffect, createElement } from "react";
-import { toKey, TweenObject, Tween, Value } from "./backends/types";
+import { toKey, Tween, TweenTarget, Value } from "./backends/types";
 import { TweenOpts, startTween } from "./backends/js";
 import { useForceRefresh } from "./hooks";
 
 export type TweenRender<P extends object, EP extends object> = (
   props: P
-) => TweenableProps<EP> | TweenableProps<EP>[];
+) => ConfigProps<EP> | ConfigProps<EP>[];
 
 type Target = {
-  tweens: Tween[];
-  lastTween?: TweenObject;
+  tweens: TweenTarget[];
+  lastTween?: Tween;
 };
 
-export type TweenValue<V extends string | number = string | number> =
+export type TweenableValue<V extends string | number = string | number> =
   | [V]
   | [V, V];
 
-type TweenableProp<V extends any> = V extends string
-  ? V | TweenValue<string>
+type ConfigProp<V extends any> = V extends string
+  ? V | TweenableValue<string>
   : V extends number
-  ? V | TweenValue<number>
+  ? V | TweenableValue<number>
   : V;
 
-type TweenableProps<P extends object> = {
+type ConfigProps<P extends object> = {
   [K in keyof Omit<P, "key">]: K extends "style"
-    ? { [SK in keyof P[K]]: TweenableProp<P[K][SK]> }
-    : TweenableProp<P[K]>;
+    ? { [SK in keyof P[K]]: ConfigProp<P[K][SK]> }
+    : ConfigProp<P[K]>;
 };
 
-const isTweenValue = (v: any[]): v is TweenValue =>
+const isTweenableValue = (v: any[]): v is TweenableValue =>
   !!v.length && v.every((a) => typeof a === "number" || typeof a === "string");
 
 type TweenableElement = keyof JSX.IntrinsicElements | React.ComponentType<any>;
@@ -48,15 +48,15 @@ const getPrevValue = (
 };
 
 const assignProps = <T extends object>(
-  tempProps: TweenableProps<T>,
+  tempProps: ConfigProps<T>,
   toProps: T,
   prevTarget: Target | null,
   target: React.MutableRefObject<Target>,
-  prevNode: React.ReactElement | null
+  prevProps: T | null
 ): T => {
   const fromProps = {} as T;
   Object.keys(tempProps).forEach((k) => {
-    const p = (tempProps as TweenableProps<T>)[k as keyof TweenableProps<T>];
+    const p = (tempProps as ConfigProps<T>)[k as keyof ConfigProps<T>];
     if (k === "children") {
     } else if (k === "style") {
       (fromProps as any)[k] = {};
@@ -64,14 +64,14 @@ const assignProps = <T extends object>(
       Object.keys(p).forEach((sk) => {
         const sp = p[sk as keyof typeof p];
         if (Array.isArray(sp)) {
-          if (isTweenValue(sp)) {
+          if (isTweenableValue(sp)) {
             let startValue: Value;
             let endValue: Value;
             if (sp.length === 1) {
               endValue = sp[0];
               startValue =
                 getPrevValue(prevTarget, "style", sk) ??
-                prevNode?.props[k]?.[sk] ??
+                (prevProps as any)?.[k]?.[sk] ??
                 endValue;
             } else {
               endValue = sp[1];
@@ -94,14 +94,14 @@ const assignProps = <T extends object>(
       });
     } else {
       if (Array.isArray(p)) {
-        if (isTweenValue(p)) {
+        if (isTweenableValue(p)) {
           let startValue: Value;
           let endValue: Value;
           if (p.length === 1) {
             endValue = p[0];
             startValue =
               getPrevValue(prevTarget, "attr", k) ??
-              prevNode?.props[k] ??
+              (prevProps as any)?.[k] ??
               endValue;
           } else {
             endValue = p[1];
@@ -137,7 +137,7 @@ export type TweenedProps<P> = P & {
 
 export const tweened = <T extends TweenableElement>(element: T) => {
   if (cache.has(element)) {
-    return cache.get(element)! as typeof Comp;
+    return cache.get(element)! as typeof createComponent;
   }
 
   type EP = T extends keyof JSX.IntrinsicElements
@@ -146,7 +146,7 @@ export const tweened = <T extends TweenableElement>(element: T) => {
     ? React.ComponentProps<T>
     : never;
 
-  const Comp = <P extends object>(
+  const createComponent = <P extends object>(
     render: TweenRender<P, EP>,
     opts: TweenOpts = {}
   ) => {
@@ -163,8 +163,8 @@ export const tweened = <T extends TweenableElement>(element: T) => {
       }: TweenedProps<P>): React.ReactElement => {
         const refresh = useForceRefresh();
         const ref = useRef<any>(null);
-        const prevNode = useRef<React.ReactElement | null>(null);
         const target = useRef<Target>(null!);
+        const prevProps = useRef<EP | null>(null);
         const nextProps = useRef<EP | null>(null);
 
         const prevTarget: typeof target.current | null = target.current;
@@ -184,7 +184,7 @@ export const tweened = <T extends TweenableElement>(element: T) => {
                 toProps,
                 prevTarget,
                 target,
-                prevNode.current
+                prevProps.current
               );
             }
           } else {
@@ -197,7 +197,7 @@ export const tweened = <T extends TweenableElement>(element: T) => {
         (fromProps as any).ref = ref;
 
         useLayoutEffect(() => {
-          let revoked = false;
+          let aborted = false;
           if (target.current.tweens.length) {
             onTweenStart?.();
 
@@ -214,7 +214,7 @@ export const tweened = <T extends TweenableElement>(element: T) => {
             (async () => {
               try {
                 await tween.end();
-                if (revoked) return;
+                if (aborted) return;
                 nextProps.current = toProps;
                 refresh();
               } catch (e) {
@@ -228,15 +228,16 @@ export const tweened = <T extends TweenableElement>(element: T) => {
             }
           }
           return () => {
-            revoked = true;
+            aborted = true;
           };
         });
 
-        return (prevNode.current = createElement(element, fromProps, children));
+        prevProps.current = fromProps;
+        return createElement(element, fromProps, children);
       }
     );
   };
 
-  cache.set(element, Comp);
-  return Comp;
+  cache.set(element, createComponent);
+  return createComponent;
 };

@@ -1,6 +1,6 @@
 import { now, timer, timeout, type Timer } from "d3-timer";
 import { getInterpolator, defaultEase } from "./d3";
-import { Value } from "./types";
+import { TweenValue, Value } from "./types";
 import { NOP } from "../utils";
 
 const CREATED = 0;
@@ -25,10 +25,10 @@ let id = 0;
 const generateId = (): number => ++id;
 
 export type Callbacks = {
-  start: (() => void)[];
-  cancel: (() => void)[];
-  interrupt: (() => void)[];
-  end: (() => void)[];
+  readonly start: (() => void)[];
+  readonly cancel: (() => void)[];
+  readonly interrupt: (() => void)[];
+  readonly end: (() => void)[];
 };
 
 export type TweenQueue = {
@@ -37,9 +37,9 @@ export type TweenQueue = {
   readonly callbacks: Callbacks;
   status: Status;
   timer: Timer;
-  init: () => void;
-  update: (t: number) => void;
-  get: () => Value;
+  readonly init: () => void;
+  readonly update: (t: number) => void;
+  readonly get: () => Value;
 };
 
 type Timing = {
@@ -55,7 +55,7 @@ const createQueue = (
   name: string,
   timing: Timing,
   callbacks: Callbacks,
-  [endValue, startValue]: [Value, Value],
+  [endValue, startValue]: TweenValue,
   setter: Setter
 ): TweenQueue => {
   let value: Value = startValue;
@@ -68,15 +68,12 @@ const createQueue = (
     status: CREATED,
     timer: null!,
     init: () => {
-      if (startValue === endValue) {
-        return;
-      }
+      if (startValue === endValue) return;
 
       const i = getInterpolator(startValue, endValue);
-      updater = (t: number) => {
-        const v = i(t);
-        value = v;
-        setter(name, v);
+      updater = (t) => {
+        value = i(t);
+        setter(name, value);
       };
     },
     update: (t: number) => {
@@ -108,15 +105,10 @@ export class Engine<T extends object = never> {
   startTween(
     target: T,
     name: string,
-    value: [Value, Value],
+    value: TweenValue,
     setter: Setter,
-    {
-      timing = {},
-      callbacks = { start: [], cancel: [], end: [], interrupt: [] },
-    }: {
-      timing?: Partial<Timing>;
-      callbacks?: Callbacks;
-    } = {}
+    timing: Partial<Timing> = {},
+    callbacks: Callbacks = { start: [], cancel: [], end: [], interrupt: [] }
   ): TweenQueue {
     return this.#update(
       target,
@@ -136,7 +128,7 @@ export class Engine<T extends object = never> {
     target: T,
     name: string,
     timing: Timing,
-    value: [Value, Value],
+    value: TweenValue,
     callbacks: Callbacks,
     setter: Setter
   ) {
