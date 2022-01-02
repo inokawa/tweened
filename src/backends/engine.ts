@@ -105,18 +105,6 @@ export class Engine<T extends object = never> {
     this.#targets = new WeakMap();
   }
 
-  getTween(target: T, name: string): TweenQueue | null {
-    const tweens = this.#targets.get(target);
-    for (const tid in tweens) {
-      const t = tweens[tid]!;
-      if (t.name !== name) {
-        continue;
-      }
-      return t;
-    }
-    return null;
-  }
-
   startTween(
     target: T,
     name: string,
