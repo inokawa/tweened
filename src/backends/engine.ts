@@ -1,6 +1,6 @@
 import { now, timer, timeout, type Timer } from "d3-timer";
 import { getInterpolator, defaultEase } from "./d3";
-import { Value, TweenValue } from "./types";
+import { Value } from "./types";
 import { NOP } from "../utils";
 
 const CREATED = 0;
@@ -49,22 +49,16 @@ type Timing = {
   readonly ease: (i: number) => number;
 };
 
-type Getter = (k: string) => Value;
 type Setter = (k: string, value: Value) => void;
 
 const createQueue = (
   name: string,
   timing: Timing,
   callbacks: Callbacks,
-  [endValue, startValue]: TweenValue,
-  getter: Getter,
+  [endValue, startValue]: [Value, Value],
   setter: Setter
 ): TweenQueue => {
-  if (startValue != null) {
-    setter(name, startValue);
-  }
-
-  let value: Value;
+  let value: Value = startValue;
   let updater: (t: number) => void = NOP;
 
   return {
@@ -74,14 +68,11 @@ const createQueue = (
     status: CREATED,
     timer: null!,
     init: () => {
-      const startValue = getter(name);
       if (startValue === endValue) {
-        return null;
+        return;
       }
 
       const i = getInterpolator(startValue, endValue);
-
-      value = startValue;
       updater = (t: number) => {
         const v = i(t);
         value = v;
@@ -129,8 +120,7 @@ export class Engine<T extends object = never> {
   startTween(
     target: T,
     name: string,
-    value: TweenValue,
-    getter: Getter,
+    value: [Value, Value],
     setter: Setter,
     {
       timing = {},
@@ -150,7 +140,6 @@ export class Engine<T extends object = never> {
       },
       value,
       callbacks,
-      getter,
       setter
     );
   }
@@ -159,9 +148,8 @@ export class Engine<T extends object = never> {
     target: T,
     name: string,
     timing: Timing,
-    value: TweenValue,
+    value: [Value, Value],
     callbacks: Callbacks,
-    getter: Getter,
     setter: Setter
   ) {
     if (!this.#targets.has(target)) {
@@ -175,7 +163,6 @@ export class Engine<T extends object = never> {
       timing,
       callbacks,
       value,
-      getter,
       setter
     ));
 

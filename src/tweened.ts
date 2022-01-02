@@ -65,24 +65,24 @@ const assignProps = <T extends object>(
         const sp = p[sk as keyof typeof p];
         if (Array.isArray(sp)) {
           if (isTweenValue(sp)) {
-            let startValue: Value | undefined;
+            let startValue: Value;
             let endValue: Value;
             if (sp.length === 1) {
-              startValue = undefined;
               endValue = sp[0];
+              startValue =
+                getPrevValue(prevTarget, "style", sk) ??
+                prevNode?.props[k]?.[sk] ??
+                endValue;
             } else {
-              startValue = sp[0];
               endValue = sp[1];
+              startValue = sp[0];
             }
             target.current.tweens.push({
               type: "style",
               key: sk,
               value: [endValue, startValue],
             });
-            (fromProps as any)[k][sk] =
-              getPrevValue(prevTarget, "style", sk) ??
-              prevNode?.props[k]?.[sk] ??
-              endValue;
+            (fromProps as any)[k][sk] = startValue;
             (toProps as any)[k][sk] = endValue;
           } else {
             // NOP
@@ -95,24 +95,24 @@ const assignProps = <T extends object>(
     } else {
       if (Array.isArray(p)) {
         if (isTweenValue(p)) {
-          let startValue: Value | undefined;
+          let startValue: Value;
           let endValue: Value;
           if (p.length === 1) {
-            startValue = undefined;
             endValue = p[0];
+            startValue =
+              getPrevValue(prevTarget, "attr", k) ??
+              prevNode?.props[k] ??
+              endValue;
           } else {
-            startValue = p[0];
             endValue = p[1];
+            startValue = p[0];
           }
           target.current.tweens.push({
             type: "attr",
             key: k,
             value: [endValue, startValue],
           });
-          (fromProps as any)[k] =
-            getPrevValue(prevTarget, "attr", k) ??
-            prevNode?.props[k] ??
-            endValue;
+          (fromProps as any)[k] = startValue;
           (toProps as any)[k] = endValue;
         } else {
           // NOP

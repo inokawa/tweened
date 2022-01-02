@@ -5,7 +5,7 @@ export type TweenValue = [endValue: Value, startValue?: Value];
 export type Tween = {
   type: "attr" | "style";
   key: string;
-  value: TweenValue;
+  value: [Value, Value];
 };
 
 export const toKey = (type: string, key: string) => `${type} ${key}`;

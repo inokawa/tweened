@@ -40,7 +40,6 @@ export const startTween = (
         el,
         toKey(tw.type, tw.key),
         tw.value,
-        (k) => el.getAttribute(name) as string,
         (k, v) => el.setAttribute(name, v as string),
         {
           timing,
@@ -61,7 +60,6 @@ export const startTween = (
         el,
         toKey(tw.type, tw.key),
         tw.value,
-        (k) => el.style.getPropertyValue(name),
         (k, v) => el.style.setProperty(name, v as string),
         {
           timing,
