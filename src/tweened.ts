@@ -140,14 +140,15 @@ export const tweened = <T extends TweenableElement>(element: T) => {
     return cache.get(element)! as typeof createComponent;
   }
 
-  type EP = T extends keyof JSX.IntrinsicElements
-    ? JSX.IntrinsicElements[T]
-    : T extends React.ComponentType<any>
-    ? React.ComponentProps<T>
-    : never;
-
-  const createComponent = <P extends object>(
-    render: TweenRender<P, EP>,
+  const createComponent = <
+    P extends object,
+    TP extends object = T extends keyof JSX.IntrinsicElements
+      ? JSX.IntrinsicElements[T]
+      : T extends React.ComponentType<any>
+      ? React.ComponentProps<T>
+      : object
+  >(
+    render: TweenRender<P, TP>,
     opts: TweenOpts = {}
   ) => {
     return memo(
@@ -164,14 +165,14 @@ export const tweened = <T extends TweenableElement>(element: T) => {
         const refresh = useForceRefresh();
         const ref = useRef<any>(null);
         const target = useRef<Target>(null!);
-        const prevProps = useRef<EP | null>(null);
-        const nextProps = useRef<EP | null>(null);
+        const prevProps = useRef<TP | null>(null);
+        const nextProps = useRef<TP | null>(null);
 
         const prevTarget: typeof target.current | null = target.current;
         target.current = { tweens: [] };
 
-        let fromProps: EP;
-        const toProps = {} as EP;
+        let fromProps: TP;
+        const toProps = {} as TP;
         try {
           if (!nextProps.current) {
             let tempProps = render(props as P);
