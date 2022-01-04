@@ -4,13 +4,21 @@ import React, {
   useLayoutEffect,
   createElement,
   useMemo,
+  useContext,
 } from "react";
 import { toKey, Tween, TweenTarget, Value } from "./backends/types";
 import { TweenOpts, startTween } from "./backends/js";
 import { useForceRefresh, useResettableState } from "./hooks";
+import {
+  TransitionKeyContext,
+  TransitionRemoveContext,
+  TransitionState,
+  TransitionStateContext,
+} from "./transition";
 
 export type TweenRender<P extends object, EP extends object> = (
-  props: P
+  props: P,
+  ctx: { state: TransitionState }
 ) => ConfigProps<EP> | ConfigProps<EP>[];
 
 type Target = {
@@ -167,19 +175,28 @@ export const tweened = <T extends TweenableElement>(element: T) => {
         onTweenStart,
         onTweenEnd,
         ...props
-      }: TweenedProps<P>): React.ReactElement => {
+      }: TweenedProps<P>): React.ReactElement | null => {
         const refresh = useForceRefresh();
         const ref = useRef<any>(null);
         const target = useRef<Target>(null!);
         const prevProps = useRef<TP | null>(null);
         const nextProps = useRef<TP | null>(null);
+        const visible = useRef(true);
+
+        const transitionState = useContext(TransitionStateContext);
+        const transitionKey = useContext(TransitionKeyContext);
+        const transitionRemove = useContext(TransitionRemoveContext);
 
         const prevTarget: typeof target.current | null = target.current;
         target.current = { tweens: [] };
 
+        if (transitionState !== "exit") {
+          visible.current = true;
+        }
+
         const configProps = useMemo(
-          () => render(props as P),
-          Object.values(props)
+          () => render(props as P, { state: transitionState }),
+          [transitionState, ...Object.values(props)]
         );
         const [index, setIndex] = useResettableState(0, configProps);
 
@@ -212,6 +229,9 @@ export const tweened = <T extends TweenableElement>(element: T) => {
         (fromProps as any).ref = ref;
 
         useLayoutEffect(() => {
+          if (!visible.current) {
+            return;
+          }
           let aborted = false;
           if (target.current.tweens.length) {
             onTweenStart?.();
@@ -243,6 +263,11 @@ export const tweened = <T extends TweenableElement>(element: T) => {
           } else {
             if (nextProps.current) {
               nextProps.current = null;
+              if (transitionState === "exit") {
+                visible.current = false;
+                transitionRemove(transitionKey);
+                refresh();
+              }
               onTweenEnd?.();
             }
           }
@@ -251,6 +276,10 @@ export const tweened = <T extends TweenableElement>(element: T) => {
           };
         });
 
+        if (!visible.current) {
+          prevProps.current = null;
+          return null;
+        }
         prevProps.current = fromProps;
         return createElement(element, fromProps, children);
       }
