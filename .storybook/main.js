@@ -3,6 +3,6 @@ module.exports = {
     "../stories/**/*.stories.mdx",
     "../stories/**/*.stories.@(js|jsx|ts|tsx)",
   ],
-  addons: [],
+  addons: ["@storybook/addon-essentials"],
   framework: "@storybook/react",
 };
