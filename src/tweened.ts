@@ -16,10 +16,15 @@ import {
   TransitionStateContext,
 } from "./transition";
 
-export type TweenRender<P extends object, EP extends object> = (
-  props: P,
+const isEventHandlerName = (name: string): name is EventHandlerName =>
+  name.indexOf("on") === 0;
+
+type EventHandlerName = `on${string}`;
+
+export type TweenRender<P extends object, TP extends object> = (
+  props: Omit<P & TP, "children" | EventHandlerName>,
   ctx: { state: TransitionState }
-) => ConfigProps<EP> | ConfigProps<EP>[];
+) => ConfigProps<TP> | ConfigProps<TP>[];
 
 type Target = {
   tweens: TweenTarget[];
@@ -103,12 +108,12 @@ const assignValue = <T extends object>(
 
 const assignProps = <T extends object>(
   tempProps: ConfigProps<T>,
+  fromProps: T,
   toProps: T,
   prevTarget: Target | null,
   target: React.MutableRefObject<Target>,
   prevProps: T | null
-): T => {
-  const fromProps = {} as T;
+) => {
   Object.keys(tempProps).forEach((k) => {
     const p = (tempProps as ConfigProps<T>)[k as keyof ConfigProps<T>];
     if (k === "children") {
@@ -141,7 +146,6 @@ const assignProps = <T extends object>(
       );
     }
   });
-  return fromProps;
 };
 
 const cache = new Map<TweenableElement, any>();
@@ -179,7 +183,7 @@ export const tweened = <T extends TweenableElement>(element: T) => {
         onTweenStart,
         onTweenEnd,
         ...props
-      }: TweenedProps<P>): React.ReactElement | null => {
+      }: TweenedProps<P & TP>): React.ReactElement | null => {
         const refresh = useForceRefresh();
         const ref = useRef<any>(null);
         const target = useRef<Target>(null!);
@@ -198,15 +202,26 @@ export const tweened = <T extends TweenableElement>(element: T) => {
           visible.current = true;
         }
 
+        const attrs = {} as { [key: string]: any };
+        const eventHandlers = {} as { [key: string]: any };
+        Object.keys(props).forEach((k) => {
+          const v = props[k as keyof typeof props];
+          if (isEventHandlerName(k)) {
+            eventHandlers[k] = v;
+          } else {
+            attrs[k] = v;
+          }
+        });
+
         const configProps = useMemo(
-          () => render(props as P, { state: transitionState }),
-          [transitionState, ...Object.values(props)]
+          () => render(attrs as P & TP, { state: transitionState }),
+          [transitionState, ...Object.values(attrs)]
         );
         const [index, setIndex] = useResettableRef(0, configProps);
 
         let lastIndex: number | null = null;
-        let fromProps: TP;
-        const toProps = {} as TP;
+        let fromProps = eventHandlers as TP;
+        const toProps = { ...eventHandlers } as TP;
         try {
           if (!nextProps.current) {
             let targetConfigProps: ConfigProps<TP>;
@@ -216,8 +231,9 @@ export const tweened = <T extends TweenableElement>(element: T) => {
             } else {
               targetConfigProps = configProps;
             }
-            fromProps = assignProps(
+            assignProps(
               targetConfigProps,
+              fromProps,
               toProps,
               prevTarget,
               target,
