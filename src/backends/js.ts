@@ -1,15 +1,23 @@
 import { camelToKebab } from "../utils";
 import { Ease, getEase } from "./d3";
-import { Engine, TweenQueue } from "./engine";
+import { TweenEngine, TweenQueue } from "./engine";
 import { toKey, Tween, TweenTarget } from "./types";
 
-const engine = new Engine<HTMLElement>();
+const engine = new TweenEngine<HTMLElement>();
 
 export type TweenOpts = {
   ease?: Ease;
   duration?: number;
   delay?: number;
 };
+
+const createPromise = (tween: TweenQueue): Promise<void> =>
+  new Promise((resolve, reject) => {
+    if (!tween) return resolve();
+    tween.cb.end.push(resolve);
+    tween.cb.interrupt.push(reject);
+    tween.cb.cancel.push(reject);
+  });
 
 export const startTween = (
   el: HTMLElement,
@@ -36,7 +44,7 @@ export const startTween = (
   values.forEach((tw) => {
     if (tw.type === "attr") {
       const name = camelToKebab(tw.key);
-      const tween = engine.startTween(
+      const tween = engine.start(
         el,
         toKey(tw.type, tw.key),
         tw.value,
@@ -44,17 +52,10 @@ export const startTween = (
         timing
       );
       tweens.push(tween);
-      promises.push(
-        new Promise((resolve, reject) => {
-          if (!tween) return resolve();
-          tween.callbacks.end.push(resolve);
-          tween.callbacks.interrupt.push(reject);
-          tween.callbacks.cancel.push(reject);
-        })
-      );
+      promises.push(createPromise(tween));
     } else if (tw.type === "style") {
       const name = camelToKebab(tw.key);
-      const tween = engine.startTween(
+      const tween = engine.start(
         el,
         toKey(tw.type, tw.key),
         tw.value,
@@ -63,14 +64,7 @@ export const startTween = (
         timing
       );
       tweens.push(tween);
-      promises.push(
-        new Promise((resolve, reject) => {
-          if (!tween) return resolve();
-          tween.callbacks.end.push(resolve);
-          tween.callbacks.interrupt.push(reject);
-          tween.callbacks.cancel.push(reject);
-        })
-      );
+      promises.push(createPromise(tween));
     }
   });
 
@@ -81,6 +75,5 @@ export const startTween = (
     end: async () => {
       await Promise.all(promises);
     },
-    interrupt: () => {},
   };
 };

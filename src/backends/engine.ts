@@ -33,8 +33,8 @@ export type Callbacks = {
 
 export type TweenQueue = {
   readonly name: string;
-  readonly timing: Timing;
-  readonly callbacks: Callbacks;
+  readonly tm: Timing;
+  readonly cb: Callbacks;
   status: Status;
   timer: Timer;
   readonly init: () => void;
@@ -51,10 +51,14 @@ type Timing = {
 
 type Setter = (k: string, value: Value) => void;
 
+const DEFAULT_DELAY = 0;
+const DEFAULT_DURATION = 250;
+const DEFAULT_EASE = defaultEase;
+
 const createQueue = (
   name: string,
   timing: Timing,
-  callbacks: Callbacks,
+  cb: Callbacks,
   [endValue, startValue]: TweenValue,
   setter: Setter
 ): TweenQueue => {
@@ -63,8 +67,8 @@ const createQueue = (
 
   return {
     name,
-    timing,
-    callbacks,
+    tm: timing,
+    cb,
     status: CREATED,
     timer: null!,
     init: () => {
@@ -85,41 +89,37 @@ const createQueue = (
   };
 };
 
-const timingDefaults = {
-  delay: 0,
-  duration: 250,
-  ease: defaultEase,
-};
-
 type Schedules = {
   [key: string]: TweenQueue;
 };
 
-export class Engine<T extends object = never> {
+export class TweenEngine<T extends object = never> {
   #targets: WeakMap<T, Schedules>;
 
   constructor() {
     this.#targets = new WeakMap();
   }
 
-  startTween(
+  start(
     target: T,
     name: string,
     value: TweenValue,
     setter: Setter,
-    timing: Partial<Timing> = {},
-    callbacks: Callbacks = { start: [], cancel: [], end: [], interrupt: [] }
+    timing: Partial<Timing>,
+    cb: Callbacks = { start: [], cancel: [], end: [], interrupt: [] }
   ): TweenQueue {
     return this.#update(
       target,
       name,
       {
-        ...timingDefaults,
+        delay: DEFAULT_DELAY,
+        duration: DEFAULT_DURATION,
+        ease: DEFAULT_EASE,
         ...timing,
         time: now(),
       },
       value,
-      callbacks,
+      cb,
       setter
     );
   }
@@ -129,7 +129,7 @@ export class Engine<T extends object = never> {
     name: string,
     timing: Timing,
     value: TweenValue,
-    callbacks: Callbacks,
+    cb: Callbacks,
     setter: Setter
   ) {
     if (!this.#targets.has(target)) {
@@ -138,23 +138,17 @@ export class Engine<T extends object = never> {
     const tweens = this.#targets.get(target)!;
 
     const id = generateId();
-    const tween = (tweens[id] = createQueue(
-      name,
-      timing,
-      callbacks,
-      value,
-      setter
-    ));
+    const tween = (tweens[id] = createQueue(name, timing, cb, value, setter));
 
     tween.timer = timer(
       (elapsed) => {
         tween.status = SCHEDULED;
-        tween.timer.restart(start, tween.timing.delay, tween.timing.time);
+        tween.timer.restart(start, tween.tm.delay, tween.tm.time);
 
-        if (tween.timing.delay <= elapsed) start(elapsed - tween.timing.delay);
+        if (tween.tm.delay <= elapsed) start(elapsed - tween.tm.delay);
       },
       0,
-      tween.timing.time
+      tween.tm.time
     );
 
     const start = (elapsed: number) => {
@@ -171,10 +165,10 @@ export class Engine<T extends object = never> {
         }
 
         if (t.status === RUNNING) {
-          t.callbacks.interrupt.forEach((fn) => fn());
+          t.cb.interrupt.forEach((fn) => fn());
           stop(t, +tid);
         } else if (+tid < id) {
-          t.callbacks.cancel.forEach((fn) => fn());
+          t.cb.cancel.forEach((fn) => fn());
           stop(t, +tid);
         }
       }
@@ -182,13 +176,13 @@ export class Engine<T extends object = never> {
       timeout(() => {
         if (tween.status === STARTED) {
           tween.status = RUNNING;
-          tween.timer.restart(tick, tween.timing.delay, tween.timing.time);
+          tween.timer.restart(tick, tween.tm.delay, tween.tm.time);
           tick(elapsed);
         }
       });
 
       tween.status = STARTING;
-      tween.callbacks.start.forEach((fn) => fn());
+      tween.cb.start.forEach((fn) => fn());
 
       if (tween.status !== STARTING) {
         return;
@@ -200,8 +194,8 @@ export class Engine<T extends object = never> {
 
     const tick = (elapsed: number) => {
       let t = 1;
-      if (elapsed < tween.timing.duration) {
-        t = tween.timing.ease(elapsed / tween.timing.duration);
+      if (elapsed < tween.tm.duration) {
+        t = tween.tm.ease(elapsed / tween.tm.duration);
       } else {
         tween.timer.restart(() => stop(tween, id));
         tween.status = ENDING;
@@ -210,7 +204,7 @@ export class Engine<T extends object = never> {
       tween.update(t);
 
       if (tween.status === ENDING) {
-        tween.callbacks.end.forEach((fn) => fn());
+        tween.cb.end.forEach((fn) => fn());
         stop(tween, id);
       }
     };

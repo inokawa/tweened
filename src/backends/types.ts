@@ -13,5 +13,4 @@ export const toKey = (type: string, key: string) => `${type} ${key}`;
 export type Tween = {
   get: () => Value[];
   end: () => Promise<void>;
-  interrupt: () => void;
 };

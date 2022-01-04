@@ -24,6 +24,26 @@ export type TransitionProps = {
   children: React.ReactElement | React.ReactElement[];
 };
 
+const createProvider = (
+  state: TransitionState,
+  key: React.Key,
+  children: React.ReactElement,
+  removeNode: (key: string | number) => void
+) =>
+  createElement(
+    TransitionStateContext.Provider,
+    { key: key, value: state },
+    createElement(
+      TransitionKeyContext.Provider,
+      { value: key },
+      createElement(
+        TransitionRemoveContext.Provider,
+        { value: removeNode },
+        children
+      )
+    )
+  );
+
 export const Transition = ({
   children,
 }: TransitionProps): React.ReactElement => {
@@ -44,38 +64,10 @@ export const Transition = ({
     const k = v.key ?? i;
     if (elemsByKey[k]) {
       // update
-      res.push(
-        createElement(
-          TransitionStateContext.Provider,
-          { key: k, value: "update" },
-          createElement(
-            TransitionKeyContext.Provider,
-            { value: k },
-            createElement(
-              TransitionRemoveContext.Provider,
-              { value: removeNode },
-              elemsByKey[k]
-            )
-          )
-        )
-      );
+      res.push(createProvider("update", k, elemsByKey[k], removeNode));
     } else {
       // exit
-      res.push(
-        createElement(
-          TransitionStateContext.Provider,
-          { key: k, value: "exit" },
-          createElement(
-            TransitionKeyContext.Provider,
-            { value: k },
-            createElement(
-              TransitionRemoveContext.Provider,
-              { value: removeNode },
-              v
-            )
-          )
-        )
-      );
+      res.push(createProvider("exit", k, v, removeNode));
     }
   });
   elems.current.forEach((v, i) => {
@@ -84,21 +76,7 @@ export const Transition = ({
       // update
     } else {
       // enter
-      res.push(
-        createElement(
-          TransitionStateContext.Provider,
-          { key: k, value: "enter" },
-          createElement(
-            TransitionKeyContext.Provider,
-            { value: k },
-            createElement(
-              TransitionRemoveContext.Provider,
-              { value: removeNode },
-              v
-            )
-          )
-        )
-      );
+      res.push(createProvider("enter", k, v, removeNode));
     }
   });
 

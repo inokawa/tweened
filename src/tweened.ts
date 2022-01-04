@@ -8,7 +8,7 @@ import React, {
 } from "react";
 import { toKey, Tween, TweenTarget, Value } from "./backends/types";
 import { TweenOpts, startTween } from "./backends/js";
-import { useForceRefresh, useResettableState } from "./hooks";
+import { useForceRefresh, useResettableRef } from "./hooks";
 import {
   TransitionKeyContext,
   TransitionRemoveContext,
@@ -61,6 +61,46 @@ const getPrevValue = (
   return prevTweens?.[prevIndex];
 };
 
+const assignValue = <T extends object>(
+  key: string,
+  value: ConfigProps<T>[keyof ConfigProps<T>],
+  type: TweenTarget["type"],
+  fromProps: T,
+  toProps: T,
+  prevTarget: Target | null,
+  target: React.MutableRefObject<Target>,
+  prevProps: T | null
+) => {
+  if (Array.isArray(value)) {
+    if (isTweenableValue(value)) {
+      let startValue: Value;
+      let endValue: Value;
+      if (value.length === 1) {
+        endValue = value[0];
+        startValue =
+          getPrevValue(prevTarget, type, key) ??
+          (prevProps as any)?.[key] ??
+          endValue;
+      } else {
+        endValue = value[1];
+        startValue = value[0];
+      }
+      target.current.tweens.push({
+        type,
+        key: key,
+        value: [endValue, startValue],
+      });
+      (fromProps as any)[key] = startValue;
+      (toProps as any)[key] = endValue;
+    } else {
+      // NOP
+    }
+  } else {
+    (fromProps as any)[key] = value;
+    (toProps as any)[key] = value;
+  }
+};
+
 const assignProps = <T extends object>(
   tempProps: ConfigProps<T>,
   toProps: T,
@@ -73,68 +113,32 @@ const assignProps = <T extends object>(
     const p = (tempProps as ConfigProps<T>)[k as keyof ConfigProps<T>];
     if (k === "children") {
     } else if (k === "style") {
-      (fromProps as any)[k] = {};
-      (toProps as any)[k] = {};
+      const fromStyle = ((fromProps as any)[k] = {});
+      const toStyle = ((toProps as any)[k] = {});
       Object.keys(p).forEach((sk) => {
         const sp = p[sk as keyof typeof p];
-        if (Array.isArray(sp)) {
-          if (isTweenableValue(sp)) {
-            let startValue: Value;
-            let endValue: Value;
-            if (sp.length === 1) {
-              endValue = sp[0];
-              startValue =
-                getPrevValue(prevTarget, "style", sk) ??
-                (prevProps as any)?.[k]?.[sk] ??
-                endValue;
-            } else {
-              endValue = sp[1];
-              startValue = sp[0];
-            }
-            target.current.tweens.push({
-              type: "style",
-              key: sk,
-              value: [endValue, startValue],
-            });
-            (fromProps as any)[k][sk] = startValue;
-            (toProps as any)[k][sk] = endValue;
-          } else {
-            // NOP
-          }
-        } else {
-          (fromProps as any)[k][sk] = sp;
-          (toProps as any)[k][sk] = sp;
-        }
+        assignValue(
+          sk,
+          sp as any,
+          "style",
+          fromStyle,
+          toStyle,
+          prevTarget,
+          target,
+          (prevProps as any)?.[k]
+        );
       });
     } else {
-      if (Array.isArray(p)) {
-        if (isTweenableValue(p)) {
-          let startValue: Value;
-          let endValue: Value;
-          if (p.length === 1) {
-            endValue = p[0];
-            startValue =
-              getPrevValue(prevTarget, "attr", k) ??
-              (prevProps as any)?.[k] ??
-              endValue;
-          } else {
-            endValue = p[1];
-            startValue = p[0];
-          }
-          target.current.tweens.push({
-            type: "attr",
-            key: k,
-            value: [endValue, startValue],
-          });
-          (fromProps as any)[k] = startValue;
-          (toProps as any)[k] = endValue;
-        } else {
-          // NOP
-        }
-      } else {
-        (fromProps as any)[k] = p;
-        (toProps as any)[k] = p;
-      }
+      assignValue(
+        k,
+        p,
+        "attr",
+        fromProps,
+        toProps,
+        prevTarget,
+        target,
+        prevProps
+      );
     }
   });
   return fromProps;
@@ -198,7 +202,7 @@ export const tweened = <T extends TweenableElement>(element: T) => {
           () => render(props as P, { state: transitionState }),
           [transitionState, ...Object.values(props)]
         );
-        const [index, setIndex] = useResettableState(0, configProps);
+        const [index, setIndex] = useResettableRef(0, configProps);
 
         let lastIndex: number | null = null;
         let fromProps: TP;
@@ -254,8 +258,8 @@ export const tweened = <T extends TweenableElement>(element: T) => {
                   setIndex(index + 1);
                 } else {
                   nextProps.current = toProps;
-                  refresh();
                 }
+                refresh();
               } catch (e) {
                 // NOP
               }

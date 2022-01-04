@@ -5,11 +5,10 @@ export const useForceRefresh = () => {
   return useCallback(() => setState((p) => p + 1), []);
 };
 
-export const useResettableState = <T, D>(
+export const useResettableRef = <T, D>(
   initialValue: T,
   dep: D
 ): [T, (value: T) => void] => {
-  const refresh = useForceRefresh();
   const value = useRef(initialValue);
   const prevDep = useRef<D>(null!);
   if (dep !== prevDep.current) {
@@ -23,7 +22,6 @@ export const useResettableState = <T, D>(
     value.current,
     useCallback((v: T) => {
       value.current = v;
-      refresh();
     }, []),
   ];
 };
