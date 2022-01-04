@@ -1,7 +1,13 @@
-import React, { useRef, memo, useLayoutEffect, createElement } from "react";
+import React, {
+  useRef,
+  memo,
+  useLayoutEffect,
+  createElement,
+  useMemo,
+} from "react";
 import { toKey, Tween, TweenTarget, Value } from "./backends/types";
 import { TweenOpts, startTween } from "./backends/js";
-import { useForceRefresh } from "./hooks";
+import { useForceRefresh, useResettableState } from "./hooks";
 
 export type TweenRender<P extends object, EP extends object> = (
   props: P
@@ -171,23 +177,31 @@ export const tweened = <T extends TweenableElement>(element: T) => {
         const prevTarget: typeof target.current | null = target.current;
         target.current = { tweens: [] };
 
+        const configProps = useMemo(
+          () => render(props as P),
+          Object.values(props)
+        );
+        const [index, setIndex] = useResettableState(0, configProps);
+
+        let lastIndex: number | null = null;
         let fromProps: TP;
         const toProps = {} as TP;
         try {
           if (!nextProps.current) {
-            let tempProps = render(props as P);
-            if (Array.isArray(tempProps)) {
-              // TODO
-              fromProps = tempProps[0] as any;
+            let targetConfigProps: ConfigProps<TP>;
+            if (Array.isArray(configProps)) {
+              lastIndex = configProps.length - 1;
+              targetConfigProps = configProps[index];
             } else {
-              fromProps = assignProps(
-                tempProps,
-                toProps,
-                prevTarget,
-                target,
-                prevProps.current
-              );
+              targetConfigProps = configProps;
             }
+            fromProps = assignProps(
+              targetConfigProps,
+              toProps,
+              prevTarget,
+              target,
+              prevProps.current
+            );
           } else {
             fromProps = nextProps.current;
           }
@@ -216,8 +230,12 @@ export const tweened = <T extends TweenableElement>(element: T) => {
               try {
                 await tween.end();
                 if (aborted) return;
-                nextProps.current = toProps;
-                refresh();
+                if (lastIndex != null && index < lastIndex) {
+                  setIndex(index + 1);
+                } else {
+                  nextProps.current = toProps;
+                  refresh();
+                }
               } catch (e) {
                 // NOP
               }
