@@ -22,7 +22,7 @@ const isEventHandlerName = (name: string): name is EventHandlerName =>
 type EventHandlerName = `on${string}`;
 
 export type TweenRender<P extends object, TP extends object> = (
-  props: Omit<P & TP, "children" | EventHandlerName>,
+  props: Omit<P & TP, "key" | "ref" | "children" | EventHandlerName>,
   ctx: { state: TransitionState }
 ) => ConfigProps<TP> | ConfigProps<TP>[];
 
@@ -42,8 +42,8 @@ type ConfigProp<V extends any> = V extends string
   : V;
 
 type ConfigProps<P extends object> = {
-  [K in keyof Omit<P, "key">]: K extends "style"
-    ? { [SK in keyof P[K]]: ConfigProp<P[K][SK]> }
+  [K in keyof P]: P[K] extends object
+    ? { [KK in keyof P[K]]: ConfigProp<P[K][KK]> }
     : ConfigProp<P[K]>;
 };
 
@@ -164,11 +164,7 @@ export const tweened = <T extends TweenableElement>(element: T) => {
 
   const createComponent = <
     P extends object,
-    TP extends object = T extends keyof JSX.IntrinsicElements
-      ? JSX.IntrinsicElements[T]
-      : T extends React.ComponentType<any>
-      ? React.ComponentProps<T>
-      : object
+    TP extends object = React.ComponentProps<T>
   >(
     render: TweenRender<P, TP>,
     opts: TweenOpts = {}
