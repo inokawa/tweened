@@ -180,7 +180,7 @@ export const tweened = <T extends TweenableElement>(element: T) => {
         onTweenEnd,
         ...props
       }: TweenedProps<P & TP>): React.ReactElement | null => {
-        const refresh = useForceRefresh();
+        const [count, refresh] = useForceRefresh();
         const ref = useRef<any>(null);
         const target = useRef<Target>(null!);
         const prevProps = useRef<TP | null>(null);
@@ -209,10 +209,10 @@ export const tweened = <T extends TweenableElement>(element: T) => {
           }
         });
 
-        const configProps = useMemo(
-          () => render(attrs as P & TP, { state: transitionState }),
-          [transitionState, ...Object.values(attrs)]
-        );
+        const deps = [transitionState, ...Object.values(attrs)];
+        const configProps = useMemo(() => {
+          return render(attrs as P & TP, { state: transitionState });
+        }, deps);
         const [index, setIndex] = useResettableRef(0, configProps);
 
         let lastIndex: number | null = null;
@@ -290,7 +290,7 @@ export const tweened = <T extends TweenableElement>(element: T) => {
           return () => {
             aborted = true;
           };
-        });
+        }, [count, ...deps]);
 
         if (!visible.current) {
           prevProps.current = null;

@@ -1,8 +1,8 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 
-export const useForceRefresh = () => {
-  const setState = useState(0)[1];
-  return useCallback(() => setState((p) => p + 1), []);
+export const useForceRefresh = (): [number, () => void] => {
+  const [count, setState] = useState(0);
+  return [count, useCallback(() => setState((p) => p + 1), [])];
 };
 
 export const useResettableRef = <T, D>(
@@ -20,8 +20,8 @@ export const useResettableRef = <T, D>(
 
   return [
     value.current,
-    useCallback((v: T) => {
+    (v: T) => {
       value.current = v;
-    }, []),
+    },
   ];
 };
