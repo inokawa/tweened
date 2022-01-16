@@ -1,19 +1,39 @@
-import React, { useCallback, useState } from "react";
-import { tweened } from "../src";
+import React, { useCallback, useMemo, useState } from "react";
+import { tween } from "../src";
 
 const randomHex = () => `#${Math.random().toString(16).slice(-6)}`;
 
-const ColoredDiv = tweened("div")<{
+const ColoredDiv = ({
+  color,
+  bgColor,
+  children,
+  duration,
+  onTweenEnd,
+}: {
   color?: string;
   bgColor: string;
-}>((props) => ({
-  style: {
-    color: [props.color],
-    backgroundColor: [props.bgColor],
-    border:'solid 1px gray',
-    padding: 10,
-  },
-}));
+  children?: React.ReactNode;
+  duration?: number;
+  onTweenEnd: () => void;
+}) => {
+  return (
+    <tween.div
+      style={useMemo(
+        () => ({
+          color: [color],
+          backgroundColor: [bgColor],
+          border: "solid 1px gray",
+          padding: 10,
+        }),
+        [color, bgColor]
+      )}
+      duration={duration}
+      onTweenEnd={onTweenEnd}
+    >
+      {children}
+    </tween.div>
+  );
+};
 
 export const Nested = () => {
   const [color, setColor] = useState(randomHex);
@@ -25,26 +45,26 @@ export const Nested = () => {
       color={color}
       bgColor={bgColor ? "white" : "black"}
       duration={800}
-      onTweenEnd={useCallback(() => {
+      onTweenEnd={() => {
         setColor(randomHex());
         setBgColor((p) => !p);
-      }, [])}
+      }}
     >
       <ColoredDiv
         bgColor={bgColor2 ? "white" : "black"}
         duration={500}
-        onTweenEnd={useCallback(() => {
+        onTweenEnd={() => {
           setBgColor2((p) => !p);
-        }, [])}
+        }}
       >
         {"Lorem"} {"ipsum"}
       </ColoredDiv>
       <ColoredDiv
         bgColor={bgColor3 ? "white" : "black"}
         duration={1000}
-        onTweenEnd={useCallback(() => {
+        onTweenEnd={() => {
           setBgColor3((p) => !p);
-        }, [])}
+        }}
       >
         Lorem ipsum
       </ColoredDiv>

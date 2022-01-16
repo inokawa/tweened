@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { tweened } from "../src";
+import { tween } from "../src";
 import * as d3 from "d3";
 
 const getRangedData = (max) => {
@@ -16,22 +16,6 @@ const getRangedData = (max) => {
 
 type LineData = { name: number; value: number };
 
-const TweenedPath = tweened("path")<{
-  datas: LineData[];
-  line: (d: LineData[]) => string;
-  value: number;
-}>(
-  (props) => ({
-    fill: "none",
-    stroke: [
-      props.value > 0.85 ? "red" : props.value > 0.5 ? "violet" : "steelblue",
-    ],
-    strokeWidth: [5 * props.value ** 2 + 2],
-    d: [props.line(props.datas)],
-  }),
-  { duration: 400, ease: "easeExp" }
-);
-
 export const Path = () => {
   const [datas, setDatas] = useState<LineData[]>(() => getRangedData(1000));
 
@@ -47,13 +31,18 @@ export const Path = () => {
     .x((d) => xScale(d.name))
     .y((d) => yScale(d.value));
 
+  const value = Math.random();
+
   return (
     <>
       <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
-        <TweenedPath
-          datas={datas}
-          line={line}
-          value={Math.random()}
+        <tween.path
+          fill="none"
+          stroke={[value > 0.85 ? "red" : value > 0.5 ? "violet" : "steelblue"]}
+          strokeWidth={[5 * value ** 2 + 2]}
+          d={[line(datas)]}
+          duration={400}
+          ease="easeExp"
           onTweenEnd={() => {
             setDatas(getRangedData(1000));
           }}

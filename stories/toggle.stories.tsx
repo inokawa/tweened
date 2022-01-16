@@ -1,13 +1,8 @@
 import React, { useState } from "react";
-import { tweened } from "../src";
+import { tween } from "../src";
 import { useCallback } from "@storybook/addons";
 
 const toTranslate3d = (x: number) => `translate3d(${x}px, 0, 0)`;
-
-const Square = tweened("div")<{ move: boolean }>(({ move }) => ({
-  className: "demo0-block",
-  style: { transform: [toTranslate3d(move ? 400 : 0)] },
-}));
 
 export const Toggle = () => {
   const [move, setMove] = useState(false);
@@ -18,7 +13,11 @@ export const Toggle = () => {
         Toggle
       </button>
       <div className="demo0">
-        <Square move={move} duration={800} />
+        <tween.div
+          className="demo0-block"
+          duration={800}
+          style={{ transform: [toTranslate3d(move ? 400 : 0)] }}
+        />
       </div>
       <style>
         {`

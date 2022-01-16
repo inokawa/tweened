@@ -1,30 +1,12 @@
-import React, {
-  useRef,
-  memo,
-  useLayoutEffect,
-  createElement,
-  useMemo,
-  useContext,
-} from "react";
+import React, { useRef, memo, useLayoutEffect, createElement } from "react";
 import { toKey, Tween, TweenTarget, Value } from "./backends/types";
 import { TweenOpts, startTween } from "./backends/js";
-import { useForceRefresh, useResettableRef } from "./hooks";
-import {
-  TransitionKeyContext,
-  TransitionRemoveContext,
-  TransitionState,
-  TransitionStateContext,
-} from "./transition";
+import { useForceRefresh } from "./hooks";
 
 const isEventHandlerName = (name: string): name is EventHandlerName =>
   name.indexOf("on") === 0;
 
 type EventHandlerName = `on${string}`;
-
-export type TweenRender<P extends object, TP extends object> = (
-  props: Omit<P & TP, "key" | "ref" | "children" | EventHandlerName>,
-  ctx: { state: TransitionState }
-) => ConfigProps<TP> | ConfigProps<TP>[];
 
 type Target = {
   tweens: TweenTarget[];
@@ -35,10 +17,8 @@ export type TweenableValue<V extends string | number = string | number> =
   | [V]
   | [V, V];
 
-type ConfigProp<V extends any> = V extends string
-  ? V | TweenableValue<string>
-  : V extends number
-  ? V | TweenableValue<number>
+type ConfigProp<V extends any> = V extends string | number
+  ? V | TweenableValue<V>
   : V;
 
 type ConfigProps<P extends object> = {
@@ -115,7 +95,7 @@ const assignProps = <T extends object>(
   prevProps: T | null
 ) => {
   Object.keys(tempProps).forEach((k) => {
-    const p = (tempProps as ConfigProps<T>)[k as keyof ConfigProps<T>];
+    const p = tempProps[k as keyof ConfigProps<T>];
     if (k === "children") {
     } else if (k === "style") {
       const fromStyle = ((fromProps as any)[k] = {});
@@ -150,158 +130,132 @@ const assignProps = <T extends object>(
 
 const cache = new Map<TweenableElement, any>();
 
-export type TweenedProps<P> = P & {
+export type TweenedProps = {
   trans?: "enter" | "update" | "exit";
-  children?: React.ReactNode;
   onTweenStart?: () => void;
   onTweenEnd?: () => void;
 } & TweenOpts;
 
-export const tweened = <T extends TweenableElement>(element: T) => {
-  if (cache.has(element)) {
-    return cache.get(element)! as typeof createComponent;
-  }
+type TweenableProps<P extends object> = ConfigProps<P> & TweenedProps;
 
-  const createComponent = <
-    P extends object,
-    TP extends object = React.ComponentProps<T>
-  >(
-    render: TweenRender<P, TP>,
-    opts: TweenOpts = {}
-  ) => {
-    return memo(
-      ({
-        children,
-        trans,
-        ease,
-        duration,
-        delay,
-        onTweenStart,
-        onTweenEnd,
-        ...props
-      }: TweenedProps<P & TP>): React.ReactElement | null => {
-        const [count, refresh] = useForceRefresh();
-        const ref = useRef<any>(null);
-        const target = useRef<Target>(null!);
-        const prevProps = useRef<TP | null>(null);
-        const nextProps = useRef<TP | null>(null);
-        const visible = useRef(true);
+export type TweenableComponent<P extends object> = React.MemoExoticComponent<
+  (props: TweenableProps<P>) => React.ReactElement | null
+>;
 
-        const transitionState = useContext(TransitionStateContext);
-        const transitionKey = useContext(TransitionKeyContext);
-        const transitionRemove = useContext(TransitionRemoveContext);
+const createComponent = <T extends TweenableElement>(
+  element: T,
+  opts: TweenOpts = {}
+) => {
+  type P = React.ComponentProps<T>;
 
-        const prevTarget: typeof target.current | null = target.current;
-        target.current = { tweens: [] };
+  return memo(
+    ({
+      children,
+      trans,
+      ease,
+      duration,
+      delay,
+      onTweenStart,
+      onTweenEnd,
+      ...props
+    }: TweenableProps<P>): React.ReactElement | null => {
+      type TP = ConfigProps<P>;
+      const [count, refresh] = useForceRefresh();
+      const ref = useRef<any>(null);
+      const target = useRef<Target>(null!);
+      const prevProps = useRef<P | null>(null);
+      const nextProps = useRef<P | null>(null);
 
-        if (transitionState !== "exit") {
-          visible.current = true;
+      const prevTarget: typeof target.current | null = target.current;
+      target.current = { tweens: [] };
+
+      const attrs = {} as TP;
+      const eventHandlers = {} as TP;
+      Object.keys(props).forEach((k: keyof TP) => {
+        const v = (props as TP)[k];
+        if (isEventHandlerName(k as string)) {
+          eventHandlers[k] = v;
+        } else {
+          attrs[k] = v;
         }
+      });
 
-        const attrs = {} as { [key: string]: any };
-        const eventHandlers = {} as { [key: string]: any };
-        Object.keys(props).forEach((k) => {
-          const v = props[k as keyof typeof props];
-          if (isEventHandlerName(k)) {
-            eventHandlers[k] = v;
-          } else {
-            attrs[k] = v;
-          }
-        });
+      const deps = Object.values(attrs);
 
-        const deps = [transitionState, ...Object.values(attrs)];
-        const configProps = useMemo(() => {
-          return render(attrs as P & TP, { state: transitionState });
-        }, deps);
-        const [index, setIndex] = useResettableRef(0, configProps);
-
-        let lastIndex: number | null = null;
-        let fromProps = eventHandlers as TP;
-        const toProps = { ...eventHandlers } as TP;
-        try {
-          if (!nextProps.current) {
-            let targetConfigProps: ConfigProps<TP>;
-            if (Array.isArray(configProps)) {
-              lastIndex = configProps.length - 1;
-              targetConfigProps = configProps[index];
-            } else {
-              targetConfigProps = configProps;
-            }
-            assignProps(
-              targetConfigProps,
-              fromProps,
-              toProps,
-              prevTarget,
-              target,
-              prevProps.current
-            );
-          } else {
-            fromProps = nextProps.current;
-          }
-        } catch (e) {
-          throw e;
+      let fromProps = eventHandlers as P;
+      const toProps = { ...eventHandlers } as P;
+      try {
+        if (!nextProps.current) {
+          assignProps(
+            attrs,
+            fromProps,
+            toProps,
+            prevTarget,
+            target,
+            prevProps.current
+          );
+        } else {
+          fromProps = nextProps.current;
         }
-
-        (fromProps as any).ref = ref;
-
-        useLayoutEffect(() => {
-          if (!visible.current) {
-            return;
-          }
-          let aborted = false;
-          if (target.current.tweens.length) {
-            onTweenStart?.();
-
-            const tween = (target.current.lastTween = startTween(
-              ref.current,
-              target.current.tweens,
-              {
-                duration: duration ?? opts.duration,
-                ease: ease ?? opts.ease,
-                delay: delay ?? opts.delay,
-              }
-            ));
-
-            (async () => {
-              try {
-                await tween.end();
-                if (aborted) return;
-                if (lastIndex != null && index < lastIndex) {
-                  setIndex(index + 1);
-                } else {
-                  nextProps.current = toProps;
-                }
-                refresh();
-              } catch (e) {
-                // NOP
-              }
-            })();
-          } else {
-            if (nextProps.current) {
-              nextProps.current = null;
-              if (transitionState === "exit") {
-                visible.current = false;
-                transitionRemove(transitionKey);
-                refresh();
-              }
-              onTweenEnd?.();
-            }
-          }
-          return () => {
-            aborted = true;
-          };
-        }, [count, ...deps]);
-
-        if (!visible.current) {
-          prevProps.current = null;
-          return null;
-        }
-        prevProps.current = fromProps;
-        return createElement(element, fromProps, children);
+      } catch (e) {
+        throw e;
       }
-    );
-  };
 
-  cache.set(element, createComponent);
-  return createComponent;
+      (fromProps as any).ref = ref;
+
+      useLayoutEffect(() => {
+        let aborted = false;
+        if (target.current.tweens.length) {
+          onTweenStart?.();
+
+          const tween = (target.current.lastTween = startTween(
+            ref.current,
+            target.current.tweens,
+            {
+              duration: duration ?? opts.duration,
+              ease: ease ?? opts.ease,
+              delay: delay ?? opts.delay,
+            }
+          ));
+
+          (async () => {
+            try {
+              await tween.end();
+              if (aborted) return;
+              nextProps.current = toProps;
+              refresh();
+            } catch (e) {
+              // NOP
+            }
+          })();
+        } else {
+          if (nextProps.current) {
+            nextProps.current = null;
+            onTweenEnd?.();
+          }
+        }
+        return () => {
+          aborted = true;
+        };
+      }, [count, ...deps]);
+
+      prevProps.current = fromProps;
+      return createElement(element, fromProps, children);
+    }
+  );
+};
+
+export const tween = new Proxy(createComponent, {
+  get(target, prop: keyof JSX.IntrinsicElements) {
+    if (cache.has(prop)) {
+      return cache.get(prop);
+    }
+    const component = createComponent(prop);
+    cache.set(prop, component);
+    return component;
+  },
+}) as typeof createComponent & {
+  [K in keyof JSX.IntrinsicElements]: TweenableComponent<
+    React.ComponentProps<K>
+  >;
 };
