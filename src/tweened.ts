@@ -1,4 +1,10 @@
-import React, { useRef, memo, useLayoutEffect, createElement } from "react";
+import React, {
+  useRef,
+  memo,
+  useLayoutEffect,
+  createElement,
+  useEffect,
+} from "react";
 import { toKey, Tween, TweenTarget, Value } from "./backends/types";
 import { TweenOpts, startTween } from "./backends/js";
 import { useForceRefresh } from "./hooks";
@@ -53,7 +59,7 @@ const assignValue = <T extends object>(
   fromProps: T,
   toProps: T,
   prevTarget: Target | null,
-  target: React.MutableRefObject<Target>,
+  target: Target,
   prevProps: T | null
 ) => {
   if (Array.isArray(value)) {
@@ -70,7 +76,7 @@ const assignValue = <T extends object>(
         endValue = value[1];
         startValue = value[0];
       }
-      target.current.tweens.push({
+      target.tweens.push({
         type,
         key: key,
         value: [endValue, startValue],
@@ -91,7 +97,7 @@ const assignProps = <T extends object>(
   fromProps: T,
   toProps: T,
   prevTarget: Target | null,
-  target: React.MutableRefObject<Target>,
+  target: Target,
   prevProps: T | null
 ) => {
   Object.keys(tempProps).forEach((k) => {
@@ -162,12 +168,12 @@ const createComponent = <T extends TweenableElement>(
       type TP = ConfigProps<P>;
       const [count, refresh] = useForceRefresh();
       const ref = useRef<any>(null);
-      const target = useRef<Target>(null!);
-      const prevProps = useRef<P | null>(null);
-      const nextProps = useRef<P | null>(null);
+      const targetRef = useRef<Target>(null!);
+      const prevPropsRef = useRef<P | null>(null);
+      const nextPropsRef = useRef<P | null>(null);
 
-      const prevTarget: typeof target.current | null = target.current;
-      target.current = { tweens: [] };
+      const prevTarget: Target | null = targetRef.current;
+      const target: Target = { tweens: [] };
 
       const attrs = {} as TP;
       const eventHandlers = {} as TP;
@@ -185,17 +191,17 @@ const createComponent = <T extends TweenableElement>(
       let fromProps = eventHandlers as P;
       const toProps = { ...eventHandlers } as P;
       try {
-        if (!nextProps.current) {
+        if (!nextPropsRef.current) {
           assignProps(
             attrs,
             fromProps,
             toProps,
             prevTarget,
             target,
-            prevProps.current
+            prevPropsRef.current
           );
         } else {
-          fromProps = nextProps.current;
+          fromProps = nextPropsRef.current;
         }
       } catch (e) {
         throw e;
@@ -205,12 +211,12 @@ const createComponent = <T extends TweenableElement>(
 
       useLayoutEffect(() => {
         let aborted = false;
-        if (target.current.tweens.length) {
+        if (target.tweens.length) {
           onTweenStart?.();
 
-          const tween = (target.current.lastTween = startTween(
+          const tween = (target.lastTween = startTween(
             ref.current,
-            target.current.tweens,
+            target.tweens,
             {
               duration: duration ?? opts.duration,
               ease: ease ?? opts.ease,
@@ -222,15 +228,15 @@ const createComponent = <T extends TweenableElement>(
             try {
               await tween.end();
               if (aborted) return;
-              nextProps.current = toProps;
+              nextPropsRef.current = toProps;
               refresh();
             } catch (e) {
               // NOP
             }
           })();
         } else {
-          if (nextProps.current) {
-            nextProps.current = null;
+          if (nextPropsRef.current) {
+            nextPropsRef.current = null;
             onTweenEnd?.();
           }
         }
@@ -239,7 +245,11 @@ const createComponent = <T extends TweenableElement>(
         };
       }, [count, ...deps]);
 
-      prevProps.current = fromProps;
+      useEffect(() => {
+        targetRef.current = target;
+        prevPropsRef.current = fromProps;
+      });
+
       return createElement(element, fromProps, children);
     }
   );

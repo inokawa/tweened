@@ -11,15 +11,15 @@ export const useResettableRef = <T, D>(
 ): [T, (value: T) => void] => {
   const value = useRef(initialValue);
   const prevDep = useRef<D>(null!);
-  if (dep !== prevDep.current) {
-    value.current = initialValue;
-  }
+  let currentValue = dep !== prevDep.current ? initialValue : value.current;
+
   useEffect(() => {
+    value.current = currentValue;
     prevDep.current = dep;
   });
 
   return [
-    value.current,
+    currentValue,
     (v: T) => {
       value.current = v;
     },
