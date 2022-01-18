@@ -1,6 +1,6 @@
 import { camelToKebab } from "../utils";
 import { Ease, getEase } from "./d3";
-import { TweenEngine, TweenQueue } from "./engine";
+import { Setter, TweenEngine, TweenQueue } from "./engine";
 import { toKey, Tween, TweenTarget } from "./types";
 
 const engine = new TweenEngine<HTMLElement>();
@@ -21,7 +21,7 @@ const createPromise = (tween: TweenQueue): Promise<void> =>
 
 export const startTween = (
   el: HTMLElement,
-  values: TweenTarget[],
+  targets: TweenTarget[],
   opts: TweenOpts
 ): Tween => {
   const timing: {
@@ -39,34 +39,26 @@ export const startTween = (
     timing.delay = opts.delay;
   }
 
-  const tweens: TweenQueue[] = [];
-  const promises: Promise<void>[] = [];
-  values.forEach((tw) => {
-    if (tw.type === "attr") {
-      const name = camelToKebab(tw.key);
-      const tween = engine.start(
-        el,
-        toKey(tw.type, tw.key),
-        tw.value,
-        (k, v) => el.setAttribute(name, String(v)),
-        timing
-      );
-      tweens.push(tween);
-      promises.push(createPromise(tween));
-    } else if (tw.type === "style") {
-      const name = camelToKebab(tw.key);
-      const tween = engine.start(
-        el,
-        toKey(tw.type, tw.key),
-        tw.value,
-        (k, v) =>
-          el.style.setProperty(name, typeof v === "number" ? `${v}px` : v),
-        timing
-      );
-      tweens.push(tween);
-      promises.push(createPromise(tween));
+  const tweens = targets.map((tw) => {
+    const name = camelToKebab(tw.key);
+    let setter: Setter;
+    switch (tw.type) {
+      case "attr": {
+        setter = (k, v) => {
+          el.setAttribute(name, String(v));
+        };
+        break;
+      }
+      case "style": {
+        setter = (k, v) => {
+          el.style.setProperty(name, typeof v === "number" ? `${v}px` : v);
+        };
+        break;
+      }
     }
+    return engine.start(el, toKey(tw.type, tw.key), tw.value, setter, timing);
   });
+  const promises = tweens.map((t) => createPromise(t));
 
   return {
     get: () => {

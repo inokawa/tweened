@@ -49,7 +49,7 @@ type Timing = {
   readonly ease: (i: number) => number;
 };
 
-type Setter = (k: string, value: Value) => void;
+export type Setter = (k: string, value: Value) => void;
 
 const DEFAULT_DELAY = 0;
 const DEFAULT_DURATION = 250;

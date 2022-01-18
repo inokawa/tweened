@@ -93,15 +93,15 @@ const assignValue = <T extends object>(
 };
 
 const assignProps = <T extends object>(
-  tempProps: ConfigProps<T>,
+  props: ConfigProps<T>,
   fromProps: T,
   toProps: T,
   prevTarget: Target | null,
   target: Target,
   prevProps: T | null
 ) => {
-  Object.keys(tempProps).forEach((k) => {
-    const p = tempProps[k as keyof ConfigProps<T>];
+  Object.keys(props).forEach((k) => {
+    const p = props[k as keyof ConfigProps<T>];
     if (k === "children") {
     } else if (k === "style") {
       const fromStyle = ((fromProps as any)[k] = {});
@@ -190,21 +190,18 @@ const createComponent = <T extends TweenableElement>(
 
       let fromProps = eventHandlers as P;
       const toProps = { ...eventHandlers } as P;
-      try {
-        if (!nextPropsRef.current) {
-          assignProps(
-            attrs,
-            fromProps,
-            toProps,
-            prevTarget,
-            target,
-            prevPropsRef.current
-          );
-        } else {
-          fromProps = nextPropsRef.current;
-        }
-      } catch (e) {
-        throw e;
+
+      if (!nextPropsRef.current) {
+        assignProps(
+          attrs,
+          fromProps,
+          toProps,
+          prevTarget,
+          target,
+          prevPropsRef.current
+        );
+      } else {
+        fromProps = nextPropsRef.current;
       }
 
       (fromProps as any).ref = ref;
