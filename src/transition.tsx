@@ -1,7 +1,6 @@
-import React, {
+import {
   createContext,
   Fragment,
-  createElement,
   useRef,
   Children,
   useCallback,
@@ -30,20 +29,15 @@ const createProvider = (
   key: React.Key,
   children: React.ReactElement,
   removeNode: (key: string | number) => void
-) =>
-  createElement(
-    TransitionStateContext.Provider,
-    { key: key, value: state },
-    createElement(
-      TransitionKeyContext.Provider,
-      { value: key },
-      createElement(
-        TransitionRemoveContext.Provider,
-        { value: removeNode },
-        children
-      )
-    )
-  );
+) => (
+  <TransitionStateContext.Provider key={key} value={state}>
+    <TransitionKeyContext.Provider value={key}>
+      <TransitionRemoveContext.Provider value={removeNode}>
+        {children}
+      </TransitionRemoveContext.Provider>
+    </TransitionKeyContext.Provider>
+  </TransitionStateContext.Provider>
+);
 
 export const Transition = ({
   children,
@@ -86,5 +80,5 @@ export const Transition = ({
     }
   });
 
-  return createElement(Fragment, null, res);
+  return <Fragment>{res}</Fragment>;
 };

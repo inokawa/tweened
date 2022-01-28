@@ -22,7 +22,7 @@ npm install tweened
 
 ### Requirements
 
-- react >= 16.8
+- react >= 16.14
 
 ## Usage
 

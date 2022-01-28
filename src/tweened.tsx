@@ -1,10 +1,4 @@
-import React, {
-  useRef,
-  memo,
-  useLayoutEffect,
-  createElement,
-  useEffect,
-} from "react";
+import { useRef, memo, useLayoutEffect, useEffect } from "react";
 import { toKey, Tween, TweenTarget, Value } from "./backends/types";
 import { TweenOpts, startTween } from "./backends/js";
 import { useForceRefresh } from "./hooks";
@@ -149,7 +143,7 @@ export type TweenableComponent<P extends object> = React.MemoExoticComponent<
 >;
 
 const createComponent = <T extends TweenableElement>(
-  element: T,
+  Element: T,
   opts: TweenOpts = {}
 ) => {
   type P = React.ComponentProps<T>;
@@ -246,8 +240,9 @@ const createComponent = <T extends TweenableElement>(
         targetRef.current = target;
         prevPropsRef.current = fromProps;
       });
+      fromProps.children = children;
 
-      return createElement(element, fromProps, children);
+      return <Element {...fromProps} />;
     }
   );
 };
