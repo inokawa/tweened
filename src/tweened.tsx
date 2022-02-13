@@ -131,7 +131,6 @@ const assignProps = <T extends object>(
 const cache = new Map<TweenableElement, any>();
 
 export type TweenedProps = {
-  trans?: "enter" | "update" | "exit";
   onTweenStart?: () => void;
   onTweenEnd?: () => void;
 } & TweenOpts;
@@ -151,7 +150,6 @@ const createComponent = <T extends TweenableElement>(
   return memo(
     ({
       children,
-      trans,
       ease,
       duration,
       delay,
@@ -256,8 +254,9 @@ export const tween = new Proxy(createComponent, {
     cache.set(prop, component);
     return component;
   },
-}) as typeof createComponent & {
-  [K in keyof JSX.IntrinsicElements]: TweenableComponent<
-    React.ComponentProps<K>
-  >;
-};
+}) as typeof createComponent &
+  {
+    [K in keyof JSX.IntrinsicElements]: TweenableComponent<
+      React.ComponentProps<K>
+    >;
+  };
