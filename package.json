@@ -1,6 +1,6 @@
 {
   "name": "tweened",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A simple, declarative and composable animation library for React.",
   "main": "lib/index.js",
   "module": "lib/index.mjs",
