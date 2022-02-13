@@ -32,11 +32,11 @@ export type Callbacks = {
 };
 
 export type TweenQueue = {
-  readonly name: string;
-  readonly tm: Timing;
+  readonly nm: string;
+  readonly pr: Timing;
   readonly cb: Callbacks;
-  status: Status;
-  timer: Timer;
+  st: Status;
+  tm: Timer;
   readonly init: () => void;
   readonly update: (t: number) => void;
   readonly get: () => Value;
@@ -66,11 +66,11 @@ const createQueue = (
   let updater: (t: number) => void = NOP;
 
   return {
-    name,
-    tm: timing,
+    nm: name,
+    pr: timing,
     cb,
-    status: CREATED,
-    timer: null!,
+    st: CREATED,
+    tm: null!,
     init: () => {
       if (startValue === endValue) return;
 
@@ -140,31 +140,31 @@ export class TweenEngine<T extends object = never> {
     const id = generateId();
     const tween = (tweens[id] = createQueue(name, timing, cb, value, setter));
 
-    tween.timer = timer(
+    tween.tm = timer(
       (elapsed) => {
-        tween.status = SCHEDULED;
-        tween.timer.restart(start, tween.tm.delay, tween.tm.time);
+        tween.st = SCHEDULED;
+        tween.tm.restart(start, tween.pr.delay, tween.pr.time);
 
-        if (tween.tm.delay <= elapsed) start(elapsed - tween.tm.delay);
+        if (tween.pr.delay <= elapsed) start(elapsed - tween.pr.delay);
       },
       0,
-      tween.tm.time
+      tween.pr.time
     );
 
     const start = (elapsed: number) => {
-      if (tween.status !== SCHEDULED) return stop(tween, id);
+      if (tween.st !== SCHEDULED) return stop(tween, id);
 
       for (const tid in tweens) {
         const t = tweens[tid]!;
-        if (t.name !== tween.name) {
+        if (t.nm !== tween.nm) {
           continue;
         }
 
-        if (t.status === STARTED) {
+        if (t.st === STARTED) {
           return timeout(start);
         }
 
-        if (t.status === RUNNING) {
+        if (t.st === RUNNING) {
           t.cb.interrupt.forEach((fn) => fn());
           stop(t, +tid);
         } else if (+tid < id) {
@@ -174,44 +174,44 @@ export class TweenEngine<T extends object = never> {
       }
 
       timeout(() => {
-        if (tween.status === STARTED) {
-          tween.status = RUNNING;
-          tween.timer.restart(tick, tween.tm.delay, tween.tm.time);
+        if (tween.st === STARTED) {
+          tween.st = RUNNING;
+          tween.tm.restart(tick, tween.pr.delay, tween.pr.time);
           tick(elapsed);
         }
       });
 
-      tween.status = STARTING;
+      tween.st = STARTING;
       tween.cb.start.forEach((fn) => fn());
 
-      if (tween.status !== STARTING) {
+      if (tween.st !== STARTING) {
         return;
       }
-      tween.status = STARTED;
+      tween.st = STARTED;
 
       tween.init();
     };
 
     const tick = (elapsed: number) => {
       let t = 1;
-      if (elapsed < tween.tm.duration) {
-        t = tween.tm.ease(elapsed / tween.tm.duration);
+      if (elapsed < tween.pr.duration) {
+        t = tween.pr.ease(elapsed / tween.pr.duration);
       } else {
-        tween.timer.restart(() => stop(tween, id));
-        tween.status = ENDING;
+        tween.tm.restart(() => stop(tween, id));
+        tween.st = ENDING;
       }
 
       tween.update(t);
 
-      if (tween.status === ENDING) {
+      if (tween.st === ENDING) {
         tween.cb.end.forEach((fn) => fn());
         stop(tween, id);
       }
     };
 
     const stop = (t: TweenQueue, id: number) => {
-      t.status = ENDED;
-      t.timer.stop();
+      t.st = ENDED;
+      t.tm.stop();
       delete tweens[id];
       for (const _ in tweens) return;
       this.#targets.delete(target);
