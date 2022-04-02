@@ -15,5 +15,5 @@ export default {
     },
   ],
   external: Object.keys(pkg.dependencies),
-  plugins: [typescript(), terser({ compress: { passes: 2 } })],
+  plugins: [typescript(), terser({ compress: { passes: 3 } })],
 };
