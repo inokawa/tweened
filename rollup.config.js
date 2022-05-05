@@ -15,5 +15,13 @@ export default {
     },
   ],
   external: Object.keys(pkg.dependencies),
-  plugins: [typescript(), terser({ compress: { passes: 3 } })],
+  plugins: [
+    typescript({
+      tsconfig: "./tsconfig.json",
+      outDir: ".",
+      declaration: true,
+      exclude: ["src/**/*.spec.*"],
+    }),
+    terser({ compress: { passes: 3 } }),
+  ],
 };

@@ -12,10 +12,9 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "rollup -c",
     "tsc": "tsc -p . --noEmit",
-    "tsc:d": "tsc -p . --outDir lib -d --emitDeclarationOnly",
     "storybook": "start-storybook -p 6006",
     "storybook:build": "build-storybook",
-    "prepublishOnly": "rimraf lib && npm run build && npm run tsc:d"
+    "prepublishOnly": "rimraf lib && npm run build"
   },
   "dependencies": {
     "d3-color": "^3.0.0",
