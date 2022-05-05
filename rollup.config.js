@@ -1,4 +1,5 @@
 import typescript from "@rollup/plugin-typescript";
+import { getBabelOutputPlugin } from "@rollup/plugin-babel";
 import { terser } from "rollup-plugin-terser";
 import pkg from "./package.json";
 
@@ -22,6 +23,17 @@ export default {
       declaration: true,
       exclude: ["src/**/*.spec.*"],
     }),
-    terser({ compress: { passes: 3 } }),
+    getBabelOutputPlugin({
+      plugins: ["@babel/plugin-transform-react-pure-annotations"],
+    }),
+    terser({
+      compress: { passes: 3 },
+      format: {
+        // https://github.com/terser/terser/pull/550
+        // https://github.com/terser/terser/issues/968
+        comments: /@preserve|@lic|@cc_on|^\**!|__PURE__/i,
+        preserve_annotations: true,
+      },
+    }),
   ],
 };
