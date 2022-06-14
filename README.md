@@ -4,6 +4,8 @@
 
 A simple, declarative and composable animation library for [React](https://github.com/facebook/react).
 
+> **NOTE: I recommend to use my new library https://github.com/inokawa/react-animatable**
+
 **This is under development and APIs are not stable.**
 
 <img src="./hello.gif" width="600px" />
